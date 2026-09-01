@@ -297,8 +297,8 @@
     <script>
         // --- GLOBALS & OPTIMIZATION FIXES ---
         let activeIntervals = [], activeTimeouts = [];
-        let globalRAF = null; // Single optimized frame request to fix freezing
-        let inputMode = 'mouse'; // Define input mode globally to prevent crashes!
+        let globalRAF = null; // CHALLEGE WON: Single optimized frame request to fix freezing!
+        let inputMode = 'mouse';
         
         let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
 
@@ -485,7 +485,7 @@
             inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player) {
-                player.facingAngle = angle;
+                player.facingAngle = angle; 
                 if (Date.now() - lastManualShot > player.fireCooldown) {
                     firePlayerBullet();
                     lastManualShot = Date.now();
@@ -493,7 +493,7 @@
             }
         }
 
-        // Shoot directly forward (No Auto Aim)
+        // Shoot directly forward (Strictly current facing angle, NO auto aim)
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
@@ -522,7 +522,8 @@
         }
 
         function hasLineOfSight(x1, y1, x2, y2) {
-            let minX = Math.min(x1, x2), maxX = Math.max(x1, x2); let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            let minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
             for(let o of obstacles) {
                 if (maxX < o.x || minX > o.x + o.w || maxY < o.y || minY > o.y + o.h) continue; 
                 let dist = Math.hypot(x2-x1, y2-y1); let steps = Math.ceil(dist / 20);
@@ -537,9 +538,12 @@
         function startTankGame(mode) {
             clearAllGameLoops(); document.getElementById('tank-menu').classList.add('hidden'); document.getElementById('tank-game-ui').classList.remove('hidden'); keys = {};
             diffConfig = difficulties[mode];
-            player = { x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: -Math.PI/2 };
+            player = { 
+                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: -Math.PI/2 
+            };
             boss = { active: false, wave: 1, x: 0, y: 0, hp: 10, maxHp: 10, speed: 2.5, state: 'tired', timer: 0, laserAngle: 0, powerTimer: 20000, emoji: '👹', name: 'Boss' };
-            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = []; tankScore = 0; waveKillCount = 0; activePowerup = { type: null, endTime: 0 };
+            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = [];
+            tankScore = 0; waveKillCount = 0; activePowerup = { type: null, endTime: 0 };
             document.getElementById('tank-score').innerText = tankScore;
             
             for(let i=0; i<50; i++) {
@@ -663,16 +667,14 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if (inputMode==='touch') player.facingAngle = -Math.PI/2; }
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if (inputMode==='touch') player.facingAngle = Math.PI/2; }
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if (inputMode==='touch') player.facingAngle = Math.PI; }
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if (inputMode==='touch') player.facingAngle = 0; }
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = -Math.PI/2; }
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = Math.PI/2; }
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = Math.PI; }
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = 0; }
 
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
-            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { 
-                firePlayerBullet(); lastAutoShot = now; 
-            }
+            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { firePlayerBullet(); lastAutoShot = now; }
 
             for(let i = drops.length - 1; i >= 0; i--) {
                 let d = drops[i]; d.angle += 0.05;
@@ -756,6 +758,7 @@
             for(let i=enemyBullets.length-1; i>=0; i--) { let b = enemyBullets[i]; b.x += b.dx; b.y += b.dy; if(obstacles.some(o => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h)) { enemyBullets.splice(i,1); continue; } if(Math.hypot(player.x - b.x, player.y - b.y) < player.size) { damagePlayer(1); enemyBullets.splice(i,1); continue; } if(b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H) enemyBullets.splice(i,1); }
             for(let i=blueBullets.length-1; i>=0; i--) { let bb = blueBullets[i]; bb.age += 16; let tAngle = Math.atan2(player.y - bb.y, player.x - bb.x); if(bb.age < 4000) bb.speed = 1.5; else bb.speed += 0.05; bb.x += Math.cos(tAngle)*bb.speed; bb.y += Math.sin(tAngle)*bb.speed; if(obstacles.some(o => bb.x > o.x && bb.x < o.x + o.w && bb.y > o.y && bb.y < o.y + o.h)) { blueBullets.splice(i,1); continue; } if(Math.hypot(player.x - bb.x, player.y - bb.y) < player.size) { damagePlayer(1); blueBullets.splice(i,1); continue; } let shot = false; for(let j=bullets.length-1; j>=0; j--) { if(Math.hypot(bullets[j].x - bb.x, bullets[j].y - bb.y) < 15) { blueBullets.splice(i,1); bullets.splice(j,1); shot = true; break; } } if(shot) continue; }
 
+            // MUST REQUEST NEXT FRAME
             globalRAF = requestAnimationFrame(loopTank);
         }
 
@@ -768,7 +771,9 @@
         tCanvas.addEventListener('mousemove', e => {
             inputMode = 'mouse';
             const rect = tCanvas.getBoundingClientRect(); mouseX = (e.clientX - rect.left) * (tCanvas.width / rect.width); mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height);
-            if(player && !document.getElementById('tank-game-ui').classList.contains('hidden')) { player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x); }
+            if(player && !document.getElementById('tank-game-ui').classList.contains('hidden')) {
+                player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
+            }
         });
 
         function handleCanvasTapShoot(screenX, screenY, isTouch) {

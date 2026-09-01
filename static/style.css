@@ -57,10 +57,7 @@ main { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 20
 
 /* --- MOBILE ON-SCREEN CONTROLS --- */
 .mobile-controls { display: flex; justify-content: center; margin: 15px 0 5px 0; user-select: none; }
-.tank-mobile-panel {
-    display: flex; justify-content: space-between; align-items: center; 
-    gap: 20px; max-width: 600px; margin: 15px auto; padding: 0 20px;
-}
+.tank-mobile-panel { display: flex; justify-content: space-between; align-items: center; gap: 20px; max-width: 600px; margin: 15px auto; padding: 0 20px; }
 .control-zone { display: flex; flex-direction: column; align-items: center; }
 .control-label { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; letter-spacing: 1px; }
 .dpad-grid { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; touch-action: none; }
