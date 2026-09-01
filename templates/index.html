@@ -246,39 +246,41 @@
                 
                 <canvas id="tank-canvas" width="600" height="450"></canvas>
                 
-                <!-- DUAL MOBILE CONTROLS FOR TANK -->
+                <!-- DUAL MOBILE CONTROLS (LEFT: MOVE | RIGHT: FIRE) -->
                 <div class="mobile-controls tank-mobile-panel">
-                    <!-- Left: Movement D-Pad -->
+                    
+                    <!-- Left Side: Movement D-Pad -->
                     <div class="control-zone">
                         <span class="control-label">🕹️ MOVE</span>
                         <div class="dpad-grid">
                             <div></div>
-                            <button class="touch-btn" ontouchstart="setTankMove('w', true, event)" ontouchend="setTankMove('w', false, event)" onmousedown="setTankMove('w', true, event)" onmouseup="setTankMove('w', false, event)">▲</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('w', true, event)" ontouchend="setTankMove('w', false, event)">▲</button>
                             <div></div>
-                            <button class="touch-btn" ontouchstart="setTankMove('a', true, event)" ontouchend="setTankMove('a', false, event)" onmousedown="setTankMove('a', true, event)" onmouseup="setTankMove('a', false, event)">◀</button>
-                            <button class="touch-btn" ontouchstart="setTankMove('s', true, event)" ontouchend="setTankMove('s', false, event)" onmousedown="setTankMove('s', true, event)" onmouseup="setTankMove('s', false, event)">▼</button>
-                            <button class="touch-btn" ontouchstart="setTankMove('d', true, event)" ontouchend="setTankMove('d', false, event)" onmousedown="setTankMove('d', true, event)" onmouseup="setTankMove('d', false, event)">▶</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('a', true, event)" ontouchend="setTankMove('a', false, event)">◀</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('s', true, event)" ontouchend="setTankMove('s', false, event)">▼</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('d', true, event)" ontouchend="setTankMove('d', false, event)">▶</button>
                         </div>
                     </div>
 
-                    <!-- Right: Directional Aim Shooting (NO AUTO AIM) -->
+                    <!-- Right Side: Directional Aim Shooting -->
                     <div class="control-zone">
                         <span class="control-label">🎯 SHOOT</span>
                         <div class="dpad-grid">
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(-Math.PI/2, event)" onmousedown="shootInDirection(-Math.PI/2, event)">▲</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(-Math.PI/2, event)">▲</button>
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI, event)" onmousedown="shootInDirection(Math.PI, event)">◀</button>
-                            <button class="touch-btn fire-btn-main" ontouchstart="shootMobileCurrentFacing(event)" onmousedown="shootMobileCurrentFacing(event)">🔥</button>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(0, event)" onmousedown="shootInDirection(0, event)">▶</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI, event)">◀</button>
+                            <button class="touch-btn fire-btn-main" ontouchstart="shootMobileCurrentFacing(event)">🔥</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(0, event)">▶</button>
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI/2, event)" onmousedown="shootInDirection(Math.PI/2, event)">▼</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI/2, event)">▼</button>
                             <div></div>
                         </div>
                     </div>
+
                 </div>
 
-                <p class="desktop-hint"><em>Mobile: Left D-Pad = Move | Right Buttons or Tap Canvas = Aim & Shoot | PC: WASD & Mouse</em></p>
+                <p class="desktop-hint"><em>Mobile: Left D-Pad Move | Right D-Pad Shoot | PC: WASD & Mouse</em></p>
                 <button class="action-btn" onclick="document.getElementById('tank-game-ui').classList.add('hidden'); document.getElementById('tank-menu').classList.remove('hidden'); clearAllGameLoops();">Exit Game</button>
             </div>
         </section>
@@ -293,10 +295,10 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // --- GLOBALS & OPTIMIZATION ---
+        // --- GLOBALS & OPTIMIZATION FIXES ---
         let activeIntervals = [], activeTimeouts = [];
-        let globalRAF = null; // Single Animation Frame Reference for Lag-Free rendering
-        let inputMode = 'mouse'; // Tracks if user is playing via mouse or touch
+        let globalRAF = null; // Single optimized frame request to fix freezing
+        let inputMode = 'mouse'; // Define input mode globally to prevent crashes!
         
         let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
 
@@ -315,7 +317,6 @@
                 else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
             }
         }
-
         function updateFSButton() {
             const fsBtn = document.getElementById('fs-btn');
             if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
@@ -346,19 +347,19 @@
 
         // --- TUTORIALS ---
         const tutorials = {
-            'ttt-view': { t: '❌ Tic-Tac-Toe', m: '🎮 Tap or click any empty cell to place your X. Get 3 in a row to win! Change difficulty to challenge smarter AI.' },
+            'ttt-view': { t: '❌ Tic-Tac-Toe', m: '🎮 Tap or click any empty cell to place your X. Get 3 in a row to win!' },
             'rps-view': { t: '✊ Rock, Paper, Scissors', m: '🎮 Tap a button to make your choice. The AI adapts to your patterns on Hard and reads your mind on Ultra!' },
             'guess-view': { t: '🔢 Number Guesser', m: '🎮 Enter a number and tap Guess. Find the secret number!' },
             'snake-view': { t: '🐍 Snake', m: '🎮 PC: [W][A][S][D] or [Arrows]\n📱 Mobile: Swipe on screen or tap the arrows.\nEat red food to grow. Avoid walls and your own tail!' },
             'mole-view': { t: '🔨 Whack-a-Mole', m: '🎮 Tap mice (🐭) for points, clocks (⏰) for time. Avoid bombs (💣)!' },
             'pong-view': { t: '🏓 Pong 2D', m: '🎮 PC: [W][S] or [Up][Down] keys\n📱 Mobile: Slide finger on screen or use ▲/▼ buttons.' },
-            'tank-view': { t: '🚀 Tank Survival RPG', m: '🎮 PC: [W][A][S][D] Move, Mouse Aim & Click Shoot.\n📱 Mobile: Left D-Pad Move, Right D-Pad Shoot or Tap Canvas.\nDestroy enemies, level up, collect powerups (?), defeat Emoji Bosses!' }
+            'tank-view': { t: '🚀 Tank Survival RPG', m: '🎮 PC: [W][A][S][D] Move, Mouse Aim & Click Shoot.\n📱 Mobile: Left D-Pad Move, Right D-Pad Shoot or Tap Canvas.\nDestroy enemies, level up, collect powerups (?), defeat Bosses!' }
         };
         let tutShown = {};
 
         function clearAllGameLoops() {
             activeIntervals.forEach(clearInterval); 
-            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; } // Fixed freeze/leak
+            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; } 
             activeTimeouts.forEach(clearTimeout);
             activeIntervals = []; activeTimeouts = [];
             const snakeBtn = document.getElementById('snake-btn'); if(snakeBtn) snakeBtn.style.display = 'block';
@@ -369,7 +370,13 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
             const homeBtn = document.getElementById('home-btn');
-            viewId === 'home-view' ? homeBtn.classList.add('hidden') : homeBtn.classList.remove('hidden');
+            
+            if (viewId === 'home-view') {
+                homeBtn.classList.add('hidden');
+            } else {
+                homeBtn.classList.remove('hidden');
+                window.scrollTo(0, 0);
+            }
 
             if (tutorials[viewId] && !tutShown[viewId]) {
                 document.getElementById('tut-title').innerText = tutorials[viewId].t;
@@ -430,7 +437,7 @@
         function drawSnakeFrame() { sCtx.fillStyle = '#1e1e2f'; sCtx.fillRect(0, 0, 400, 400); sCtx.fillStyle = '#ff3366'; sCtx.fillRect(sFood.x, sFood.y, 20, 20); sCtx.fillStyle = '#00e676'; snake.forEach(part => sCtx.fillRect(part.x, part.y, 18, 18)); }
         function handleSnakeKey(key, event) { if(event) { event.preventDefault(); event.stopPropagation(); } const k = key.toLowerCase(); if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } }
         function startSnake() { clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'none'; snake = [{x: 200, y: 200}]; sDx = 20; sDy = 0; sScore = 0; let diff = document.getElementById('snake-diff').value; let speed = diff==='easy' ? 150 : diff==='medium' ? 100 : diff==='hard' ? 60 : 40; sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; document.getElementById('snake-score').innerText = sScore; runCountdown(drawSnakeFrame, sCtx, 400, 400, () => { activeIntervals.push(setInterval(updateSnake, speed)); }); }
-        function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
+        function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'block'; return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
         window.addEventListener('keydown', e => { if(!document.getElementById('snake-view').classList.contains('hidden')) handleSnakeKey(e.key); });
         let sStartX = 0, sStartY = 0; sCanvas.addEventListener('touchstart', e => { sStartX = e.changedTouches[0].screenX; sStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false}); sCanvas.addEventListener('touchend', e => { let dx = e.changedTouches[0].screenX - sStartX, dy = e.changedTouches[0].screenY - sStartY; if(Math.abs(dx) > Math.abs(dy)) { if(dx > 30) handleSnakeKey('d'); else if(dx < -30) handleSnakeKey('a'); } else { if(dy > 30) handleSnakeKey('s'); else if(dy < -30) handleSnakeKey('w'); } e.preventDefault(); }, {passive: false});
 
@@ -447,7 +454,8 @@
         window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=true; if(k==='arrowdown' || k==='s') pDown=true; }); window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=false; if(k==='arrowdown' || k==='s') pDown=false; });
         pCanvas.addEventListener('touchmove', e => { const rect = pCanvas.getBoundingClientRect(); let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); pY = Math.max(0, Math.min(320, touchY - 40)); e.preventDefault(); }, {passive: false});
 
-        // --- 7. TANK RPG SURVIVAL & PERFECT MOBILE SHOOTING ---
+
+        // --- 7. TANK RPG SURVIVAL & SAFE SPAWN ENGINE ---
         const tCanvas = document.getElementById('tank-canvas'), tCtx = tCanvas.getContext('2d');
         const WORLD_W = 2000, WORLD_H = 2000;
         
@@ -456,15 +464,22 @@
         let diffConfig = {}, activePowerup = { type: null, endTime: 0 }, lastAutoShot = 0, lastManualShot = 0;
 
         const difficulties = { easy: {speedMax: 1.2, spawnRate: 3}, medium: {speedMax: 2.0, spawnRate: 6}, hard: {speedMax: 3.5, spawnRate: 10}, ultra: {speedMax: 5.5, spawnRate: 15} };
-        const bossRoster = [ { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' }, { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' } ];
 
+        const bossRoster = [
+            { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' },
+            { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' }
+        ];
+
+        window.addEventListener('blur', () => { keys = {}; });
+
+        // D-Pad Movement logic
         function setTankMove(k, val, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
             keys[k.toLowerCase()] = val;
         }
 
-        // Exact directional shooting
+        // Quick Shoot in direction from Mobile
         function shootInDirection(angle, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
@@ -472,18 +487,20 @@
             if (player) {
                 player.facingAngle = angle;
                 if (Date.now() - lastManualShot > player.fireCooldown) {
-                    firePlayerBullet(); lastManualShot = Date.now();
+                    firePlayerBullet();
+                    lastManualShot = Date.now();
                 }
             }
         }
 
-        // NO AUTO-AIM: Shoots precisely in current facing direction
+        // Shoot directly forward (No Auto Aim)
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player && Date.now() - lastManualShot > player.fireCooldown) {
-                firePlayerBullet(); lastManualShot = Date.now();
+                firePlayerBullet();
+                lastManualShot = Date.now();
             }
         }
 
@@ -505,8 +522,7 @@
         }
 
         function hasLineOfSight(x1, y1, x2, y2) {
-            let minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-            let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            let minX = Math.min(x1, x2), maxX = Math.max(x1, x2); let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
             for(let o of obstacles) {
                 if (maxX < o.x || minX > o.x + o.w || maxY < o.y || minY > o.y + o.h) continue; 
                 let dist = Math.hypot(x2-x1, y2-y1); let steps = Math.ceil(dist / 20);
@@ -553,7 +569,6 @@
             }
         }
 
-        // Fire Bullet Engine uses EXACT facing angle only
         function firePlayerBullet() {
             let baseAngle = player.facingAngle; soundClick();
             if (player.multishot === 1) { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
@@ -590,31 +605,55 @@
 
             for(let e of enemies) { 
                 if(e.isMinion) {
-                    tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
+                    tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+                    tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+                    tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
                 } else { tCtx.fillStyle = '#ff5252'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); }
             }
 
             if (boss.active) {
                 tCtx.font = "60px Arial"; tCtx.textAlign = "center"; tCtx.textBaseline = "middle"; tCtx.fillText(boss.emoji, boss.x, boss.y);
-                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b"; tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
+                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b";
+                tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
+
                 if(boss.state === 'tired') { tCtx.font = "20px Arial"; tCtx.fillStyle = "#ffff00"; tCtx.fillText("❓❓❓", boss.x, boss.y - 45); }
                 tCtx.fillStyle = "red"; tCtx.fillRect(boss.x - 40, boss.y - 70, 80 * (boss.hp/boss.maxHp), 8); tCtx.strokeStyle = "white"; tCtx.strokeRect(boss.x - 40, boss.y - 70, 80, 8);
+                
                 if (boss.state === 'laser') {
-                    tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle); tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath(); tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)'; tCtx.fill(); tCtx.restore();
+                    tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle);
+                    tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath();
+                    tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)';
+                    tCtx.fill(); tCtx.restore();
                 }
             }
 
-            for(let b of enemyBullets) { if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); } }
-            for(let bb of blueBullets) { tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff'; tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0; }
+            for(let b of enemyBullets) { 
+                if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } 
+                else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); }
+            }
+            for(let bb of blueBullets) {
+                tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff';
+                tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0;
+            }
+
             for(let b of bullets) { tCtx.fillStyle = '#f39c12'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 4, 0, Math.PI*2); tCtx.fill(); }
 
-            if(player.invuln <= 0 || Math.floor(Date.now()/100) % 2 === 0) {
-                tCtx.save(); tCtx.translate(player.x, player.y); tCtx.rotate(player.facingAngle); tCtx.fillStyle = activePowerup.type === 'speed' ? '#00e676' : '#00d2ff'; tCtx.fillRect(-player.size/2, -player.size/2, player.size, player.size); tCtx.fillStyle = '#fff'; tCtx.fillRect(0, -3, 22, 6); tCtx.restore();
-                if (activePowerup.type === 'shield') { tCtx.beginPath(); tCtx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2); tCtx.strokeStyle = "rgba(0, 210, 255, 0.8)"; tCtx.lineWidth = 4; tCtx.stroke(); }
+            if(player.invuln <= 0 || Math.floor(Date.now()/100) % 2 === 0) { 
+                tCtx.save(); tCtx.translate(player.x, player.y); 
+                tCtx.rotate(player.facingAngle); 
+                tCtx.fillStyle = activePowerup.type === 'speed' ? '#00e676' : '#00d2ff'; 
+                tCtx.fillRect(-player.size/2, -player.size/2, player.size, player.size); 
+                tCtx.fillStyle = '#fff'; tCtx.fillRect(0, -3, 22, 6); 
+                tCtx.restore(); 
+                if (activePowerup.type === 'shield') { tCtx.beginPath(); tCtx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2); tCtx.strokeStyle = "rgba(0, 210, 255, 0.8)"; tCtx.lineWidth = 4; tCtx.stroke(); } 
             }
 
             tCtx.restore(); 
-            tCtx.resetTransform(); tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70); tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left"; tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
+
+            tCtx.resetTransform();
+            tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70);
+            tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left";
+            tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
             for(let i=0; i<player.maxHp; i++) { tCtx.fillStyle = i < player.hp ? '#ff3366' : '#555'; tCtx.font = "20px Arial"; tCtx.fillText("❤", 20 + i * 22, 65); }
         }
 
@@ -624,14 +663,16 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(inputMode === 'touch') player.facingAngle = -Math.PI/2; }
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(inputMode === 'touch') player.facingAngle = Math.PI/2; }
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(inputMode === 'touch') player.facingAngle = Math.PI; }
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(inputMode === 'touch') player.facingAngle = 0; }
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if (inputMode==='touch') player.facingAngle = -Math.PI/2; }
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if (inputMode==='touch') player.facingAngle = Math.PI/2; }
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if (inputMode==='touch') player.facingAngle = Math.PI; }
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if (inputMode==='touch') player.facingAngle = 0; }
 
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
-            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { firePlayerBullet(); lastAutoShot = now; }
+            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { 
+                firePlayerBullet(); lastAutoShot = now; 
+            }
 
             for(let i = drops.length - 1; i >= 0; i--) {
                 let d = drops[i]; d.angle += 0.05;
@@ -655,7 +696,8 @@
                 boss.active = true; boss.speed = player.baseSpeed * 0.85; boss.maxHp = 50 + (boss.wave - 1) * 25; boss.hp = boss.maxHp;
                 let bPos = getSafeSpawn(player.x, player.y, 400, 500, 60); boss.x = bPos.x; boss.y = bPos.y;
                 boss.state = 'tired'; boss.timer = 2500; boss.powerTimer = 20000;
-                let bType = bossRoster[Math.floor(Math.random() * bossRoster.length)]; boss.emoji = bType.e; boss.name = bType.n; soundWin(); enemies = []; 
+                let bType = bossRoster[Math.floor(Math.random() * bossRoster.length)]; boss.emoji = bType.e; boss.name = bType.n;
+                soundWin(); enemies = []; 
             }
 
             if(boss.active) {
@@ -736,6 +778,7 @@
 
             const rect = tCanvas.getBoundingClientRect(); let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width); let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
             let targetX = canvasX + camX; let targetY = canvasY + camY; player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
+            
             if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) { firePlayerBullet(); lastManualShot = Date.now(); }
         }
 

@@ -14,7 +14,7 @@
     --neon-orange: #f39c12;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
 body { font-family: 'Poppins', sans-serif; background: var(--bg-gradient); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
 
 /* --- TUTORIAL MODAL --- */
@@ -56,11 +56,14 @@ main { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 20
 .scoreboard { display: flex; justify-content: center; gap: 30px; font-size: 1.2rem; margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 10px 30px; border-radius: 20px; display: inline-flex; }
 
 /* --- MOBILE ON-SCREEN CONTROLS --- */
-.mobile-controls { display: flex; justify-content: center; margin: 15px 0 5px 0; user-select: none; touch-action: none; }
-.tank-mobile-panel { display: flex; justify-content: space-around; align-items: center; gap: 20px; max-width: 600px; margin: 15px auto; }
+.mobile-controls { display: flex; justify-content: center; margin: 15px 0 5px 0; user-select: none; }
+.tank-mobile-panel {
+    display: flex; justify-content: space-between; align-items: center; 
+    gap: 20px; max-width: 600px; margin: 15px auto; padding: 0 20px;
+}
 .control-zone { display: flex; flex-direction: column; align-items: center; }
 .control-label { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 5px; letter-spacing: 1px; }
-.dpad-grid { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; }
+.dpad-grid { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; touch-action: none; }
 
 .touch-btn { 
     width: 52px; height: 52px; 
@@ -130,7 +133,8 @@ footer .rainbow-glow { font-size: 2rem !important; margin-top: 10px !important; 
     .guess-controls input { margin-bottom: 15px; width: 100%; }
     .game-controls { flex-direction: column; gap: 10px; }
     .game-title { font-size: 1.8rem; }
-    .tank-mobile-panel { gap: 10px; flex-direction: column; }
-    .dpad-grid { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 46px); gap: 4px; }
-    .touch-btn { width: 46px; height: 46px; font-size: 1.1rem; }
+    
+    .tank-mobile-panel { flex-direction: row; justify-content: space-between; gap: 5px; padding: 0 5px; }
+    .dpad-grid { grid-template-columns: repeat(3, 42px); grid-template-rows: repeat(2, 42px); gap: 4px; }
+    .touch-btn { width: 42px; height: 42px; font-size: 1rem; }
 }
