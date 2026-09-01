@@ -140,7 +140,7 @@
         <section id="snake-view" class="view-section hidden">
             <h2 class="game-title">Snake</h2>
             <div class="game-controls">
-                <select id="snake-diff" class="diff-select">
+                <select id="snake-diff" class="diff-select" onchange="startSnake()">
                     <option value="easy">🟢 Easy (Slow)</option>
                     <option value="medium" selected>🟡 Medium (Normal)</option>
                     <option value="hard">🔴 Hard (Fast)</option>
@@ -295,9 +295,13 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // --- GLOBALS & OPTIMIZATION FIXES ---
-        let activeIntervals = [], activeTimeouts = [];
-        let globalRAF = null; // CHALLEGE WON: Single optimized frame request to fix freezing!
+        // --- GLOBALS & LOOP MANAGERS ---
+        let snakeInterval = null;
+        let moleTimer = null;
+        let moleGameTimer = null;
+        let pongRAF = null;
+        let tankRAF = null;
+        let activeTimeouts = [];
         let inputMode = 'mouse';
         
         let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
@@ -358,11 +362,14 @@
         let tutShown = {};
 
         function clearAllGameLoops() {
-            activeIntervals.forEach(clearInterval); 
-            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; } 
+            if (snakeInterval) { clearInterval(snakeInterval); snakeInterval = null; }
+            if (moleTimer) { clearInterval(moleTimer); moleTimer = null; }
+            if (moleGameTimer) { clearInterval(moleGameTimer); moleGameTimer = null; }
+            if (pongRAF) { cancelAnimationFrame(pongRAF); pongRAF = null; }
+            if (tankRAF) { cancelAnimationFrame(tankRAF); tankRAF = null; }
             activeTimeouts.forEach(clearTimeout);
-            activeIntervals = []; activeTimeouts = [];
-            const snakeBtn = document.getElementById('snake-btn'); if(snakeBtn) snakeBtn.style.display = 'block';
+            activeTimeouts = [];
+            const snakeBtn = document.getElementById('snake-btn'); if (snakeBtn) snakeBtn.style.display = 'block';
         }
 
         function showView(viewId) {
@@ -398,21 +405,6 @@
             if(game==='tank') { scores.tank.best=0; document.getElementById('tank-best').innerText=0; }
         }
 
-        function runCountdown(drawFunc, ctx, width, height, callback) {
-            let count = 3;
-            function tick() {
-                drawFunc(); 
-                ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, width, height);
-                ctx.font = "bold 80px Orbitron"; ctx.fillStyle = count === 0 ? "#00e676" : "#ff3366";
-                ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.shadowBlur = 20; ctx.shadowColor = ctx.fillStyle;
-                let text = count > 0 ? count : "GO!";
-                ctx.fillText(text, width/2, height/2); ctx.shadowBlur = 0; 
-                if (count > 0) { playTone(400, 'square', 0.1); count--; activeTimeouts.push(setTimeout(tick, 1000));
-                } else { playTone(800, 'sine', 0.4); activeTimeouts.push(setTimeout(callback, 500)); }
-            }
-            tick();
-        }
-
         // --- 1. TIC-TAC-TOE ---
         let tttBoard = ["", "", "", "", "", "", "", "", ""]; let tttGameActive = true; const tttCells = document.querySelectorAll('.ttt-cell'); 
         tttCells.forEach(cell => cell.addEventListener('click', (e) => { const index = e.target.getAttribute('data-index'); if (tttBoard[index] !== "" || !tttGameActive) return; soundClick(); makeTTTMove(index, "X"); if(tttGameActive) setTimeout(aiTTTMove, 300); }));
@@ -431,31 +423,285 @@
         function resetGuessGame() { let diff = document.getElementById('guess-diff').value; if(diff==='easy') guessMax=50; else if(diff==='medium') guessMax=100; else if(diff==='hard') guessMax=500; else guessMax=1000; guessTarget = Math.floor(Math.random() * guessMax) + 1; guessAttempts = 0; ultraLimit = diff==='ultra' ? 10 : 999; document.getElementById('guess-hint').innerText = `I am thinking of a number between 1 and ${guessMax}...` + (diff==='ultra' ? ` (Max 10 tries)` : ''); document.getElementById('guess-result').innerHTML = ""; document.getElementById('guess-reset-btn').classList.add('hidden'); } resetGuessGame(); 
         function makeGuess() { const input = document.getElementById('guess-input'); const guess = parseInt(input.value); const res = document.getElementById('guess-result'); if (isNaN(guess) || guess < 1 || guess > guessMax) return res.innerHTML = "Invalid number!"; guessAttempts++; if (guess === guessTarget) { res.innerHTML = `<span style="color: #00e676;">🎉 Correct! It was ${guessTarget} in ${guessAttempts} tries.</span>`; scores.guess.w++; document.getElementById('guess-w').innerText = scores.guess.w; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundWin(); } else { if (guessAttempts >= ultraLimit) { res.innerHTML = `<span style="color: #ff5252;">💀 You failed! Number was ${guessTarget}.</span>`; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundLose(); } else { res.innerHTML = guess < guessTarget ? `Too low! (Tries: ${guessAttempts})` : `Too high! (Tries: ${guessAttempts})`; soundClick(); } } input.value = ""; input.focus(); }
 
-        // --- 4. SNAKE GAME ---
+        // --- 4. SNAKE GAME (INSTANT START, CLEAN LOOP) ---
         const sCanvas = document.getElementById('snake-canvas'), sCtx = sCanvas.getContext('2d');
-        let snake, sFood, sDx, sDy, sScore;
-        function drawSnakeFrame() { sCtx.fillStyle = '#1e1e2f'; sCtx.fillRect(0, 0, 400, 400); sCtx.fillStyle = '#ff3366'; sCtx.fillRect(sFood.x, sFood.y, 20, 20); sCtx.fillStyle = '#00e676'; snake.forEach(part => sCtx.fillRect(part.x, part.y, 18, 18)); }
-        function handleSnakeKey(key, event) { if(event) { event.preventDefault(); event.stopPropagation(); } const k = key.toLowerCase(); if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } }
-        function startSnake() { clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'none'; snake = [{x: 200, y: 200}]; sDx = 20; sDy = 0; sScore = 0; let diff = document.getElementById('snake-diff').value; let speed = diff==='easy' ? 150 : diff==='medium' ? 100 : diff==='hard' ? 60 : 40; sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; document.getElementById('snake-score').innerText = sScore; runCountdown(drawSnakeFrame, sCtx, 400, 400, () => { activeIntervals.push(setInterval(updateSnake, speed)); }); }
-        function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'block'; return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
-        window.addEventListener('keydown', e => { if(!document.getElementById('snake-view').classList.contains('hidden')) handleSnakeKey(e.key); });
-        let sStartX = 0, sStartY = 0; sCanvas.addEventListener('touchstart', e => { sStartX = e.changedTouches[0].screenX; sStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false}); sCanvas.addEventListener('touchend', e => { let dx = e.changedTouches[0].screenX - sStartX, dy = e.changedTouches[0].screenY - sStartY; if(Math.abs(dx) > Math.abs(dy)) { if(dx > 30) handleSnakeKey('d'); else if(dx < -30) handleSnakeKey('a'); } else { if(dy > 30) handleSnakeKey('s'); else if(dy < -30) handleSnakeKey('w'); } e.preventDefault(); }, {passive: false});
+        let snake = [], sFood = {x: 0, y: 0}, sDx = 20, sDy = 0, sScore = 0, snakeRunning = false;
+
+        function spawnSnakeFood() {
+            let valid = false;
+            while (!valid) {
+                sFood = {
+                    x: Math.floor(Math.random() * 20) * 20,
+                    y: Math.floor(Math.random() * 20) * 20
+                };
+                valid = !snake.some(segment => segment.x === sFood.x && segment.y === sFood.y);
+            }
+        }
+
+        function drawSnakeFrame() {
+            sCtx.fillStyle = '#1e1e2f';
+            sCtx.fillRect(0, 0, 400, 400);
+
+            // Subtle grid
+            sCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            for (let i = 0; i < 400; i += 20) {
+                sCtx.beginPath(); sCtx.moveTo(i, 0); sCtx.lineTo(i, 400); sCtx.stroke();
+                sCtx.beginPath(); sCtx.moveTo(0, i); sCtx.lineTo(400, i); sCtx.stroke();
+            }
+
+            // Food
+            sCtx.fillStyle = '#ff3366';
+            sCtx.shadowBlur = 10;
+            sCtx.shadowColor = '#ff3366';
+            sCtx.fillRect(sFood.x + 2, sFood.y + 2, 16, 16);
+            sCtx.shadowBlur = 0;
+
+            // Snake
+            snake.forEach((part, index) => {
+                sCtx.fillStyle = index === 0 ? '#00e676' : '#00b359';
+                sCtx.fillRect(part.x + 1, part.y + 1, 18, 18);
+            });
+        }
+
+        function handleSnakeKey(key, event) {
+            if (event) { event.preventDefault(); event.stopPropagation(); }
+            if (!snakeRunning) return;
+            const k = key.toLowerCase();
+            if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; }
+            if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; }
+            if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; }
+            if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; }
+        }
+
+        function startSnake() {
+            clearAllGameLoops();
+            const btn = document.getElementById('snake-btn');
+            if (btn) btn.style.display = 'none';
+
+            snake = [
+                { x: 200, y: 200 },
+                { x: 180, y: 200 },
+                { x: 160, y: 200 }
+            ];
+            sDx = 20;
+            sDy = 0;
+            sScore = 0;
+            snakeRunning = true;
+            document.getElementById('snake-score').innerText = sScore;
+            spawnSnakeFood();
+            drawSnakeFrame();
+
+            let diff = document.getElementById('snake-diff').value;
+            let speed = diff === 'easy' ? 140 : diff === 'medium' ? 100 : diff === 'hard' ? 65 : 45;
+            snakeInterval = setInterval(updateSnake, speed);
+        }
+
+        function updateSnake() {
+            if (!snakeRunning) return;
+            const head = { x: snake[0].x + sDx, y: snake[0].y + sDy };
+
+            // Wall Collision
+            if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400) {
+                gameOverSnake();
+                return;
+            }
+
+            // Self Collision
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                gameOverSnake();
+                return;
+            }
+
+            snake.unshift(head);
+
+            // Eat Food
+            if (head.x === sFood.x && head.y === sFood.y) {
+                sScore += 10;
+                document.getElementById('snake-score').innerText = sScore;
+                if (sScore > scores.snake.best) {
+                    scores.snake.best = sScore;
+                    document.getElementById('snake-best').innerText = scores.snake.best;
+                }
+                soundClick();
+                spawnSnakeFood();
+            } else {
+                snake.pop();
+            }
+
+            drawSnakeFrame();
+        }
+
+        function gameOverSnake() {
+            snakeRunning = false;
+            soundLose();
+            clearAllGameLoops();
+            const btn = document.getElementById('snake-btn');
+            if (btn) btn.style.display = 'block';
+            alert('Game Over! Final Score: ' + sScore);
+        }
+
+        window.addEventListener('keydown', e => { 
+            if(!document.getElementById('snake-view').classList.contains('hidden')) handleSnakeKey(e.key); 
+        });
+
+        let sStartX = 0, sStartY = 0;
+        sCanvas.addEventListener('touchstart', e => { 
+            sStartX = e.changedTouches[0].screenX; sStartY = e.changedTouches[0].screenY; e.preventDefault(); 
+        }, {passive: false});
+        sCanvas.addEventListener('touchend', e => { 
+            let dx = e.changedTouches[0].screenX - sStartX, dy = e.changedTouches[0].screenY - sStartY; 
+            if(Math.abs(dx) > Math.abs(dy)) { if(dx > 25) handleSnakeKey('d'); else if(dx < -25) handleSnakeKey('a'); } 
+            else { if(dy > 25) handleSnakeKey('s'); else if(dy < -25) handleSnakeKey('w'); } 
+            e.preventDefault(); 
+        }, {passive: false});
 
         // --- 5. WHACK A MOLE ---
         const holes = document.querySelectorAll('.hole'); let mScore = 0, mTime = 30; 
-        function startMoleGame() { clearAllGameLoops(); mScore = 0; mTime = 30; document.getElementById('mole-score').innerText = mScore; document.getElementById('mole-time').innerText = mTime; holes.forEach(h => h.innerHTML = ""); let diff = document.getElementById('mole-diff').value; let rate = diff==='easy' ? 1200 : diff==='medium' ? 800 : diff==='hard' ? 550 : 350; activeIntervals.push(setInterval(() => { mTime--; document.getElementById('mole-time').innerText = mTime; if(mTime <= 0) { soundLose(); clearAllGameLoops(); alert("Time's Up! Score: " + mScore); } }, 1000)); activeIntervals.push(setInterval(spawnEntity, rate)); } 
-        function spawnEntity() { holes.forEach(h => h.innerHTML = ""); let diff = document.getElementById('mole-diff').value; let bombChance = diff==='easy' ? 0.1 : diff==='medium' ? 0.2 : diff==='hard' ? 0.35 : 0.5; const rHole = holes[Math.floor(Math.random() * holes.length)]; const r = Math.random(); if (r < bombChance) { rHole.innerHTML = "💣"; rHole.dataset.type = "bomb"; } else if (r < bombChance + 0.15) { rHole.innerHTML = "⏰"; rHole.dataset.type = "clock"; } else { rHole.innerHTML = "🐭"; rHole.dataset.type = "mole"; } } 
-        holes.forEach(hole => hole.addEventListener('click', () => { if(hole.innerHTML === "") return; let type = hole.dataset.type; hole.innerHTML = "💥"; if (type === "mole") { mScore += 10; soundClick(); } else if (type === "clock") { mTime += 5; soundWin(); } else if (type === "bomb") { soundLose(); clearAllGameLoops(); return alert("Hit a Bomb! Game Over."); } document.getElementById('mole-score').innerText = mScore; if(mScore > scores.mole.best) { scores.mole.best = mScore; document.getElementById('mole-best').innerText = scores.mole.best; } setTimeout(() => hole.innerHTML = "", 300); }));
+        function startMoleGame() { 
+            clearAllGameLoops(); mScore = 0; mTime = 30; 
+            document.getElementById('mole-score').innerText = mScore; document.getElementById('mole-time').innerText = mTime; 
+            holes.forEach(h => h.innerHTML = ""); 
+            let diff = document.getElementById('mole-diff').value; 
+            let rate = diff==='easy' ? 1200 : diff==='medium' ? 800 : diff==='hard' ? 550 : 350; 
+            moleGameTimer = setInterval(() => { mTime--; document.getElementById('mole-time').innerText = mTime; if(mTime <= 0) { soundLose(); clearAllGameLoops(); alert("Time's Up! Score: " + mScore); } }, 1000); 
+            moleTimer = setInterval(spawnEntity, rate); 
+        } 
+        function spawnEntity() { 
+            holes.forEach(h => h.innerHTML = ""); 
+            let diff = document.getElementById('mole-diff').value; 
+            let bombChance = diff==='easy' ? 0.1 : diff==='medium' ? 0.2 : diff==='hard' ? 0.35 : 0.5; 
+            const rHole = holes[Math.floor(Math.random() * holes.length)]; const r = Math.random(); 
+            if (r < bombChance) { rHole.innerHTML = "💣"; rHole.dataset.type = "bomb"; } 
+            else if (r < bombChance + 0.15) { rHole.innerHTML = "⏰"; rHole.dataset.type = "clock"; } 
+            else { rHole.innerHTML = "🐭"; rHole.dataset.type = "mole"; } 
+        } 
+        holes.forEach(hole => hole.addEventListener('click', () => { 
+            if(hole.innerHTML === "") return; 
+            let type = hole.dataset.type; hole.innerHTML = "💥"; 
+            if (type === "mole") { mScore += 10; soundClick(); } 
+            else if (type === "clock") { mTime += 5; soundWin(); } 
+            else if (type === "bomb") { soundLose(); clearAllGameLoops(); return alert("Hit a Bomb! Game Over."); } 
+            document.getElementById('mole-score').innerText = mScore; 
+            if(mScore > scores.mole.best) { scores.mole.best = mScore; document.getElementById('mole-best').innerText = scores.mole.best; } 
+            setTimeout(() => hole.innerHTML = "", 300); 
+        }));
 
-        // --- 6. PONG ---
-        const pCanvas = document.getElementById('pong-canvas'), pCtx = pCanvas.getContext('2d'); let pY = 160, aiY = 160, ball = {x: 300, y: 200, dx: 4, dy: 4}; let pUp = false, pDown = false;
-        function startPong() { clearAllGameLoops(); pY = 160; aiY = 160; ball = {x: 300, y: 200, dx: 5, dy: 5}; loopPong(); }
-        function loopPong() { let diff = document.getElementById('pong-diff').value; let aiSpeed = diff==='easy' ? 2 : diff==='medium' ? 4 : diff==='hard' ? 6 : 9; if(pUp && pY > 0) pY -= 6; if(pDown && pY < 320) pY += 6; if(aiY + 40 < ball.y - 10) aiY += aiSpeed; if(aiY + 40 > ball.y + 10) aiY -= aiSpeed; ball.x += ball.dx; ball.y += ball.dy; if(ball.y <= 0 || ball.y >= 400) ball.dy *= -1; if(ball.x <= 20 && ball.x > 0 && ball.y > pY && ball.y < pY + 80) { ball.x = 21; ball.dx *= -1.1; soundClick(); } if(ball.x >= 580 && ball.x < 600 && ball.y > aiY && ball.y < aiY + 80) { ball.x = 579; ball.dx *= -1.1; soundClick(); } if(ball.x < 0) { scores.pong.p2++; document.getElementById('pong-p2').innerText = scores.pong.p2; soundLose(); ball = {x: 300, y: 200, dx: 5, dy: 5}; } if(ball.x > 600) { scores.pong.p1++; document.getElementById('pong-p1').innerText = scores.pong.p1; soundWin(); ball = {x: 300, y: 200, dx: -5, dy: 5}; } pCtx.fillStyle = '#1e1e2f'; pCtx.fillRect(0, 0, 600, 400); pCtx.fillStyle = '#00d2ff'; pCtx.fillRect(10, pY, 10, 80); pCtx.fillStyle = '#ff3366'; pCtx.fillRect(580, aiY, 10, 80); pCtx.fillStyle = '#fff'; pCtx.beginPath(); pCtx.arc(ball.x, ball.y, 8, 0, Math.PI*2); pCtx.fill(); globalRAF = requestAnimationFrame(loopPong); }
-        window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=true; if(k==='arrowdown' || k==='s') pDown=true; }); window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=false; if(k==='arrowdown' || k==='s') pDown=false; });
-        pCanvas.addEventListener('touchmove', e => { const rect = pCanvas.getBoundingClientRect(); let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); pY = Math.max(0, Math.min(320, touchY - 40)); e.preventDefault(); }, {passive: false});
+        // --- 6. PONG 2D (INSTANT START & SMOOTH LOOP) ---
+        const pCanvas = document.getElementById('pong-canvas'), pCtx = pCanvas.getContext('2d');
+        let pY = 160, aiY = 160, ball = { x: 300, y: 200, dx: 5, dy: 3 }, pongRunning = false;
+        let pUp = false, pDown = false;
 
+        function startPong() {
+            clearAllGameLoops();
+            pY = 160;
+            aiY = 160;
+            let diff = document.getElementById('pong-diff').value;
+            let initialSpeed = diff === 'easy' ? 4 : diff === 'medium' ? 5 : diff === 'hard' ? 6.5 : 8;
+            ball = { x: 300, y: 200, dx: (Math.random() > 0.5 ? 1 : -1) * initialSpeed, dy: (Math.random() * 4 - 2) };
+            pongRunning = true;
+            pongRAF = requestAnimationFrame(loopPong);
+        }
 
-        // --- 7. TANK RPG SURVIVAL & SAFE SPAWN ENGINE ---
+        function loopPong() {
+            if (!pongRunning) return;
+            let diff = document.getElementById('pong-diff').value;
+            let aiSpeed = diff === 'easy' ? 2.5 : diff === 'medium' ? 4.2 : diff === 'hard' ? 6.5 : 8.8;
+
+            if (pUp && pY > 0) pY -= 7;
+            if (pDown && pY < 320) pY += 7;
+
+            let paddleCenter = aiY + 40;
+            if (paddleCenter < ball.y - 12) aiY += aiSpeed;
+            else if (paddleCenter > ball.y + 12) aiY -= aiSpeed;
+            aiY = Math.max(0, Math.min(320, aiY));
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            if (ball.y <= 8) { ball.y = 8; ball.dy *= -1; soundClick(); }
+            if (ball.y >= 392) { ball.y = 392; ball.dy *= -1; soundClick(); }
+
+            if (ball.x <= 25 && ball.x >= 10 && ball.y >= pY && ball.y <= pY + 80) {
+                ball.x = 26;
+                ball.dx = Math.abs(ball.dx) * 1.05;
+                let impact = (ball.y - (pY + 40)) / 40;
+                ball.dy = impact * 6;
+                soundClick();
+            }
+
+            if (ball.x >= 575 && ball.x <= 590 && ball.y >= aiY && ball.y <= aiY + 80) {
+                ball.x = 574;
+                ball.dx = -Math.abs(ball.dx) * 1.05;
+                let impact = (ball.y - (aiY + 40)) / 40;
+                ball.dy = impact * 6;
+                soundClick();
+            }
+
+            if (ball.x < 0) {
+                scores.pong.p2++;
+                document.getElementById('pong-p2').innerText = scores.pong.p2;
+                soundLose();
+                let initialSpeed = diff === 'easy' ? 4 : diff === 'medium' ? 5 : diff === 'hard' ? 6.5 : 8;
+                ball = { x: 300, y: 200, dx: initialSpeed, dy: (Math.random() * 4 - 2) };
+            }
+            if (ball.x > 600) {
+                scores.pong.p1++;
+                document.getElementById('pong-p1').innerText = scores.pong.p1;
+                soundWin();
+                let initialSpeed = diff === 'easy' ? 4 : diff === 'medium' ? 5 : diff === 'hard' ? 6.5 : 8;
+                ball = { x: 300, y: 200, dx: -initialSpeed, dy: (Math.random() * 4 - 2) };
+            }
+
+            pCtx.fillStyle = '#1e1e2f';
+            pCtx.fillRect(0, 0, 600, 400);
+
+            pCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            pCtx.setLineDash([8, 8]);
+            pCtx.beginPath();
+            pCtx.moveTo(300, 0);
+            pCtx.lineTo(300, 400);
+            pCtx.stroke();
+            pCtx.setLineDash([]);
+
+            pCtx.fillStyle = '#00d2ff';
+            pCtx.shadowBlur = 10;
+            pCtx.shadowColor = '#00d2ff';
+            pCtx.fillRect(12, pY, 12, 80);
+
+            pCtx.fillStyle = '#ff3366';
+            pCtx.shadowBlur = 10;
+            pCtx.shadowColor = '#ff3366';
+            pCtx.fillRect(576, aiY, 12, 80);
+
+            pCtx.fillStyle = '#ffffff';
+            pCtx.shadowBlur = 12;
+            pCtx.shadowColor = '#ffffff';
+            pCtx.beginPath();
+            pCtx.arc(ball.x, ball.y, 7, 0, Math.PI * 2);
+            pCtx.fill();
+            pCtx.shadowBlur = 0;
+
+            pongRAF = requestAnimationFrame(loopPong);
+        }
+
+        window.addEventListener('keydown', e => { 
+            const k = e.key.toLowerCase(); 
+            if(k==='arrowup' || k==='w') pUp=true; 
+            if(k==='arrowdown' || k==='s') pDown=true; 
+        }); 
+        window.addEventListener('keyup', e => { 
+            const k = e.key.toLowerCase(); 
+            if(k==='arrowup' || k==='w') pUp=false; 
+            if(k==='arrowdown' || k==='s') pDown=false; 
+        });
+        pCanvas.addEventListener('touchmove', e => { 
+            const rect = pCanvas.getBoundingClientRect(); 
+            let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); 
+            pY = Math.max(0, Math.min(320, touchY - 40)); 
+            e.preventDefault(); 
+        }, {passive: false});
+
+        // --- 7. TANK RPG SURVIVAL (INSTANT START & FIXED SHOOTING) ---
         const tCanvas = document.getElementById('tank-canvas'), tCtx = tCanvas.getContext('2d');
         const WORLD_W = 2000, WORLD_H = 2000;
         
@@ -464,43 +710,32 @@
         let diffConfig = {}, activePowerup = { type: null, endTime: 0 }, lastAutoShot = 0, lastManualShot = 0;
 
         const difficulties = { easy: {speedMax: 1.2, spawnRate: 3}, medium: {speedMax: 2.0, spawnRate: 6}, hard: {speedMax: 3.5, spawnRate: 10}, ultra: {speedMax: 5.5, spawnRate: 15} };
+        const bossRoster = [ { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' }, { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' } ];
 
-        const bossRoster = [
-            { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' },
-            { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' }
-        ];
-
-        window.addEventListener('blur', () => { keys = {}; });
-
-        // D-Pad Movement logic
         function setTankMove(k, val, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
             keys[k.toLowerCase()] = val;
         }
 
-        // Quick Shoot in direction from Mobile
         function shootInDirection(angle, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player) {
-                player.facingAngle = angle; 
+                player.facingAngle = angle;
                 if (Date.now() - lastManualShot > player.fireCooldown) {
-                    firePlayerBullet();
-                    lastManualShot = Date.now();
+                    firePlayerBullet(); lastManualShot = Date.now();
                 }
             }
         }
 
-        // Shoot directly forward (Strictly current facing angle, NO auto aim)
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player && Date.now() - lastManualShot > player.fireCooldown) {
-                firePlayerBullet();
-                lastManualShot = Date.now();
+                firePlayerBullet(); lastManualShot = Date.now();
             }
         }
 
@@ -536,54 +771,84 @@
         }
 
         function startTankGame(mode) {
-            clearAllGameLoops(); document.getElementById('tank-menu').classList.add('hidden'); document.getElementById('tank-game-ui').classList.remove('hidden'); keys = {};
+            clearAllGameLoops(); 
+            document.getElementById('tank-menu').classList.add('hidden'); 
+            document.getElementById('tank-game-ui').classList.remove('hidden'); 
+            keys = {};
+
             diffConfig = difficulties[mode];
             player = { 
-                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: -Math.PI/2 
+                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, 
+                hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, 
+                multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: -Math.PI/2 
             };
             boss = { active: false, wave: 1, x: 0, y: 0, hp: 10, maxHp: 10, speed: 2.5, state: 'tired', timer: 0, laserAngle: 0, powerTimer: 20000, emoji: '👹', name: 'Boss' };
-            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = [];
+            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = []; 
             tankScore = 0; waveKillCount = 0; activePowerup = { type: null, endTime: 0 };
             document.getElementById('tank-score').innerText = tankScore;
             
             for(let i=0; i<50; i++) {
-                let w = 40 * (Math.floor(Math.random() * 3) + 1), h = 40 * (Math.floor(Math.random() * 2) + 1); let x = Math.random() * (WORLD_W - w), y = Math.random() * (WORLD_H - h);
-                if ((player.x - 200) < (x + w) && (player.x + 200) > x && (player.y - 200) < (y + h) && (player.y + 200) > y) continue; obstacles.push({x, y, w, h});
+                let w = 40 * (Math.floor(Math.random() * 3) + 1), h = 40 * (Math.floor(Math.random() * 2) + 1); 
+                let x = Math.random() * (WORLD_W - w), y = Math.random() * (WORLD_H - h);
+                if ((player.x - 200) < (x + w) && (player.x + 200) > x && (player.y - 200) < (y + h) && (player.y + 200) > y) continue; 
+                obstacles.push({x, y, w, h});
             }
             spawnEnemies(diffConfig.spawnRate);
-            camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
-            runCountdown(drawTankFrame, tCtx, tCanvas.width, tCanvas.height, () => { globalRAF = requestAnimationFrame(loopTank); });
+            camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); 
+            camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
+            
+            // STARTS INSTANTLY WITHOUT ANY COUNTDOWN FREEZE
+            tankRAF = requestAnimationFrame(loopTank);
         }
 
-        function spawnEnemies(count) { if(boss.active) return; for(let i=0; i<count; i++) { let pos = getSafeSpawn(player.x, player.y, 500, 700, 25); enemies.push({ x: pos.x, y: pos.y, size: 25, speed: (Math.random() * diffConfig.speedMax * 0.8) + 0.5 }); } }
+        function spawnEnemies(count) { 
+            if(boss.active) return; 
+            for(let i=0; i<count; i++) { 
+                let pos = getSafeSpawn(player.x, player.y, 500, 700, 25); 
+                enemies.push({ x: pos.x, y: pos.y, size: 25, speed: (Math.random() * diffConfig.speedMax * 0.8) + 0.5 }); 
+            } 
+        }
 
         function damagePlayer(amount = 1) {
             if(player.invuln > 0) return;
             if(activePowerup.type === 'shield') { activePowerup.type = null; document.getElementById('tank-power').innerText="None"; player.invuln = 1000; return; }
             player.hp -= amount; soundLose(); player.invuln = 1000;
-            if (player.hp <= 0) { clearAllGameLoops(); alert("Tank Destroyed! Final Score: " + tankScore); document.getElementById('tank-game-ui').classList.add('hidden'); document.getElementById('tank-menu').classList.remove('hidden'); }
+            if (player.hp <= 0) { 
+                clearAllGameLoops(); 
+                alert("Tank Destroyed! Final Score: " + tankScore); 
+                document.getElementById('tank-game-ui').classList.add('hidden'); 
+                document.getElementById('tank-menu').classList.remove('hidden'); 
+            }
         }
 
         function gainExp(amount) {
             player.exp += amount;
             if (player.exp >= player.maxExp) {
                 player.exp -= player.maxExp; player.level++; player.maxExp = Math.floor(player.maxExp * 1.5); player.hp = Math.min(player.hp + 1, player.maxHp); soundWin();
-                if (player.level === 2) player.fireCooldown = 150; if (player.level === 3) player.maxHp += 1;
-                if (player.level === 4) player.multishot = 2; if (player.level === 5) player.maxHp += 2; if (player.level >= 6)  player.maxHp += 1; 
+                if (player.level === 2) player.fireCooldown = 150; 
+                if (player.level === 3) player.maxHp += 1;
+                if (player.level === 4) player.multishot = 2; 
+                if (player.level === 5) player.maxHp += 2; 
+                if (player.level >= 6)  player.maxHp += 1; 
             }
         }
 
         function firePlayerBullet() {
             let baseAngle = player.facingAngle; soundClick();
-            if (player.multishot === 1) { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
-            } else { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle-0.1)*10, dy: Math.sin(baseAngle-0.1)*10 }); bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle+0.1)*10, dy: Math.sin(baseAngle+0.1)*10 }); }
+            if (player.multishot === 1) { 
+                bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
+            } else { 
+                bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle-0.1)*10, dy: Math.sin(baseAngle-0.1)*10 }); 
+                bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle+0.1)*10, dy: Math.sin(baseAngle+0.1)*10 }); 
+            }
         }
 
         function drawTankFrame() {
             tCtx.fillStyle = '#1e1e2f'; tCtx.fillRect(0, 0, tCanvas.width, tCanvas.height);
             tCtx.save(); tCtx.translate(-camX, -camY); 
             tCtx.strokeStyle = "rgba(255,255,255,0.05)";
-            for(let i=0; i<WORLD_W; i+=50) { tCtx.beginPath(); tCtx.moveTo(i, 0); tCtx.lineTo(i, WORLD_H); tCtx.stroke(); } for(let i=0; i<WORLD_H; i+=50) { tCtx.beginPath(); tCtx.moveTo(0, i); tCtx.lineTo(WORLD_W, i); tCtx.stroke(); }
+            for(let i=0; i<WORLD_W; i+=50) { tCtx.beginPath(); tCtx.moveTo(i, 0); tCtx.lineTo(i, WORLD_H); tCtx.stroke(); } 
+            for(let i=0; i<WORLD_H; i+=50) { tCtx.beginPath(); tCtx.moveTo(0, i); tCtx.lineTo(WORLD_W, i); tCtx.stroke(); }
 
             for(let b of bombs) {
                 if (b.timer > 0) {
@@ -598,7 +863,8 @@
             }
 
             tCtx.fillStyle = '#0a0a0a'; tCtx.shadowBlur = 10; tCtx.shadowColor = '#000';
-            for(let o of obstacles) { tCtx.fillRect(o.x, o.y, o.w, o.h); tCtx.strokeStyle = '#333'; tCtx.strokeRect(o.x, o.y, o.w, o.h); } tCtx.shadowBlur = 0;
+            for(let o of obstacles) { tCtx.fillRect(o.x, o.y, o.w, o.h); tCtx.strokeStyle = '#333'; tCtx.strokeRect(o.x, o.y, o.w, o.h); } 
+            tCtx.shadowBlur = 0;
 
             for(let d of drops) {
                 tCtx.save(); tCtx.translate(d.x, d.y); tCtx.rotate(d.angle);
@@ -667,14 +933,17 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = -Math.PI/2; }
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = Math.PI/2; }
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = Math.PI; }
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(inputMode === 'touch' || inputMode === 'keyboard') player.facingAngle = 0; }
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if (inputMode==='touch' || inputMode==='keyboard') player.facingAngle = -Math.PI/2; }
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if (inputMode==='touch' || inputMode==='keyboard') player.facingAngle = Math.PI/2; }
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if (inputMode==='touch' || inputMode==='keyboard') player.facingAngle = Math.PI; }
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if (inputMode==='touch' || inputMode==='keyboard') player.facingAngle = 0; }
 
-            camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
+            camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); 
+            camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
-            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { firePlayerBullet(); lastAutoShot = now; }
+            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { 
+                firePlayerBullet(); lastAutoShot = now; 
+            }
 
             for(let i = drops.length - 1; i >= 0; i--) {
                 let d = drops[i]; d.angle += 0.05;
@@ -686,7 +955,12 @@
                 }
             }
 
-            for(let i = bullets.length - 1; i >= 0; i--) { let b = bullets[i]; b.x += b.dx; b.y += b.dy; if(obstacles.some(o => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) || b.x < 0 || b.x > WORLD_W || b.y < 0 || b.y > WORLD_H) { bullets.splice(i, 1); continue; } }
+            for(let i = bullets.length - 1; i >= 0; i--) { 
+                let b = bullets[i]; b.x += b.dx; b.y += b.dy; 
+                if(obstacles.some(o => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) || b.x < 0 || b.x > WORLD_W || b.y < 0 || b.y > WORLD_H) { 
+                    bullets.splice(i, 1); continue; 
+                } 
+            }
 
             for(let i = bombs.length - 1; i >= 0; i--) {
                 let b = bombs[i]; b.timer -= 16;
@@ -758,8 +1032,8 @@
             for(let i=enemyBullets.length-1; i>=0; i--) { let b = enemyBullets[i]; b.x += b.dx; b.y += b.dy; if(obstacles.some(o => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h)) { enemyBullets.splice(i,1); continue; } if(Math.hypot(player.x - b.x, player.y - b.y) < player.size) { damagePlayer(1); enemyBullets.splice(i,1); continue; } if(b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H) enemyBullets.splice(i,1); }
             for(let i=blueBullets.length-1; i>=0; i--) { let bb = blueBullets[i]; bb.age += 16; let tAngle = Math.atan2(player.y - bb.y, player.x - bb.x); if(bb.age < 4000) bb.speed = 1.5; else bb.speed += 0.05; bb.x += Math.cos(tAngle)*bb.speed; bb.y += Math.sin(tAngle)*bb.speed; if(obstacles.some(o => bb.x > o.x && bb.x < o.x + o.w && bb.y > o.y && bb.y < o.y + o.h)) { blueBullets.splice(i,1); continue; } if(Math.hypot(player.x - bb.x, player.y - bb.y) < player.size) { damagePlayer(1); blueBullets.splice(i,1); continue; } let shot = false; for(let j=bullets.length-1; j>=0; j--) { if(Math.hypot(bullets[j].x - bb.x, bullets[j].y - bb.y) < 15) { blueBullets.splice(i,1); bullets.splice(j,1); shot = true; break; } } if(shot) continue; }
 
-            // MUST REQUEST NEXT FRAME
-            globalRAF = requestAnimationFrame(loopTank);
+            drawTankFrame(); 
+            tankRAF = requestAnimationFrame(loopTank);
         }
 
         window.addEventListener('keydown', e => { 
@@ -781,10 +1055,16 @@
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if(!player) return;
 
-            const rect = tCanvas.getBoundingClientRect(); let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width); let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
-            let targetX = canvasX + camX; let targetY = canvasY + camY; player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
+            const rect = tCanvas.getBoundingClientRect(); 
+            let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width); 
+            let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
+            let targetX = canvasX + camX; 
+            let targetY = canvasY + camY; 
+            player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
             
-            if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) { firePlayerBullet(); lastManualShot = Date.now(); }
+            if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) { 
+                firePlayerBullet(); lastManualShot = Date.now(); 
+            }
         }
 
         tCanvas.addEventListener('mousedown', e => { handleCanvasTapShoot(e.clientX, e.clientY, false); });
