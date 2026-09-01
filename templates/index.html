@@ -246,7 +246,7 @@
                 
                 <canvas id="tank-canvas" width="600" height="450"></canvas>
                 
-                <!-- DUAL MOBILE CONTROLS FOR TANK (MOVE LEFT, AIM/SHOOT RIGHT) -->
+                <!-- DUAL MOBILE CONTROLS FOR TANK -->
                 <div class="mobile-controls tank-mobile-panel">
                     <!-- Left: Movement D-Pad -->
                     <div class="control-zone">
@@ -323,7 +323,6 @@
         document.addEventListener('webkitfullscreenchange', updateFSButton);
         document.addEventListener('mozfullscreenchange', updateFSButton);
         document.addEventListener('MSFullscreenChange', updateFSButton);
-
 
         // --- AUDIO ENGINE ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -510,7 +509,8 @@
         window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=true; if(k==='arrowdown' || k==='s') pDown=true; }); window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=false; if(k==='arrowdown' || k==='s') pDown=false; });
         pCanvas.addEventListener('touchmove', e => { const rect = pCanvas.getBoundingClientRect(); let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); pY = Math.max(0, Math.min(320, touchY - 40)); e.preventDefault(); }, {passive: false});
 
-        // --- 7. TANK RPG SURVIVAL ---
+
+        // --- 7. TANK RPG SURVIVAL & SAFE SPAWN ENGINE ---
         const tCanvas = document.getElementById('tank-canvas'), tCtx = tCanvas.getContext('2d');
         const WORLD_W = 2000, WORLD_H = 2000;
         
@@ -532,7 +532,7 @@
             if (event) { event.stopPropagation(); event.preventDefault(); }
             keys[k.toLowerCase()] = val;
             if (val && angle !== null && player) {
-                player.facingAngle = angle; // Rotate tank in driving direction
+                player.facingAngle = angle; 
             }
         }
 
@@ -551,28 +551,13 @@
             }
         }
 
-        // Shoot in current facing direction (or auto target)
+        // Shoot directly forward (No Auto Aim)
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (!player) return;
 
-            let angle = player.facingAngle;
-            // If near an enemy or boss, auto-aim towards them!
-            let nearest = null;
-            let minDist = 450;
-            if (boss && boss.active) {
-                let d = Math.hypot(boss.x - player.x, boss.y - player.y);
-                if (d < minDist) { nearest = boss; minDist = d; }
-            }
-            for (let e of enemies) {
-                let d = Math.hypot(e.x - player.x, e.y - player.y);
-                if (d < minDist) { nearest = e; minDist = d; }
-            }
-            if (nearest) {
-                angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-                player.facingAngle = angle;
-            }
+            let angle = player.facingAngle; // Fixed: Now shoots straight ahead exactly where tank points
 
             if (Date.now() - lastManualShot > player.fireCooldown) {
                 let targetX = player.x + Math.cos(angle) * 300;
@@ -612,9 +597,7 @@
             clearAllGameLoops(); document.getElementById('tank-menu').classList.add('hidden'); document.getElementById('tank-game-ui').classList.remove('hidden'); keys = {};
             diffConfig = difficulties[mode];
             player = { 
-                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, 
-                hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, 
-                multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: 0 
+                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: 0 
             };
             boss = { active: false, wave: 1, x: 0, y: 0, hp: 10, maxHp: 10, speed: 2.5, state: 'tired', timer: 0, laserAngle: 0, powerTimer: 20000, emoji: '👹', name: 'Boss' };
             bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = [];
@@ -650,7 +633,7 @@
 
         function firePlayerBullet(targetX, targetY) {
             let baseAngle = Math.atan2(targetY - player.y, targetX - player.x); 
-            player.facingAngle = baseAngle;
+            player.facingAngle = baseAngle; // Sync aim perfectly
             soundClick();
             if (player.multishot === 1) { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
             } else { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle-0.1)*10, dy: Math.sin(baseAngle-0.1)*10 }); bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle+0.1)*10, dy: Math.sin(baseAngle+0.1)*10 }); }
@@ -677,37 +660,65 @@
             tCtx.fillStyle = '#0a0a0a'; tCtx.shadowBlur = 10; tCtx.shadowColor = '#000';
             for(let o of obstacles) { tCtx.fillRect(o.x, o.y, o.w, o.h); tCtx.strokeStyle = '#333'; tCtx.strokeRect(o.x, o.y, o.w, o.h); } tCtx.shadowBlur = 0;
 
-            for(let d of drops) { tCtx.save(); tCtx.translate(d.x, d.y); tCtx.rotate(d.angle); tCtx.font = d.isSpecial ? "30px Arial" : "24px Orbitron"; tCtx.fillStyle = d.isSpecial ? "#ff3366" : "#ffeb3b"; tCtx.shadowBlur = 15; tCtx.shadowColor = tCtx.fillStyle; tCtx.textAlign = "center"; tCtx.textBaseline = "middle"; tCtx.fillText(d.isSpecial ? "🔥" : "?", 0, 0); tCtx.restore(); }
+            for(let d of drops) {
+                tCtx.save(); tCtx.translate(d.x, d.y); tCtx.rotate(d.angle);
+                tCtx.font = d.isSpecial ? "30px Arial" : "24px Orbitron"; tCtx.fillStyle = d.isSpecial ? "#ff3366" : "#ffeb3b"; 
+                tCtx.shadowBlur = 15; tCtx.shadowColor = tCtx.fillStyle; tCtx.textAlign = "center"; tCtx.textBaseline = "middle"; 
+                tCtx.fillText(d.isSpecial ? "🔥" : "?", 0, 0); tCtx.restore();
+            }
+
             for(let e of enemies) { 
-                if(e.isMinion) { tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
+                if(e.isMinion) {
+                    tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+                    tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
+                    tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
                 } else { tCtx.fillStyle = '#ff5252'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); }
             }
 
             if (boss.active) {
                 tCtx.font = "60px Arial"; tCtx.textAlign = "center"; tCtx.textBaseline = "middle"; tCtx.fillText(boss.emoji, boss.x, boss.y);
-                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b"; tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
+                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b";
+                tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
+
                 if(boss.state === 'tired') { tCtx.font = "20px Arial"; tCtx.fillStyle = "#ffff00"; tCtx.fillText("❓❓❓", boss.x, boss.y - 45); }
                 tCtx.fillStyle = "red"; tCtx.fillRect(boss.x - 40, boss.y - 70, 80 * (boss.hp/boss.maxHp), 8); tCtx.strokeStyle = "white"; tCtx.strokeRect(boss.x - 40, boss.y - 70, 80, 8);
-                if (boss.state === 'laser') { tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle); tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath(); tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)'; tCtx.fill(); tCtx.restore(); }
+                
+                if (boss.state === 'laser') {
+                    tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle);
+                    tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath();
+                    tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)';
+                    tCtx.fill(); tCtx.restore();
+                }
             }
 
-            for(let b of enemyBullets) { if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); } }
-            for(let bb of blueBullets) { tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff'; tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0; }
+            for(let b of enemyBullets) { 
+                if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } 
+                else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); }
+            }
+            for(let bb of blueBullets) {
+                tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff';
+                tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0;
+            }
+
             for(let b of bullets) { tCtx.fillStyle = '#f39c12'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 4, 0, Math.PI*2); tCtx.fill(); }
 
-            // Draw Tank Player
+            // Fixed Visual Tank Drawing Rotation
             if(player.invuln <= 0 || Math.floor(Date.now()/100) % 2 === 0) { 
                 tCtx.save(); tCtx.translate(player.x, player.y); 
-                tCtx.rotate(player.facingAngle); 
+                tCtx.rotate(player.facingAngle); // Exactly follow our aiming direction!
                 tCtx.fillStyle = activePowerup.type === 'speed' ? '#00e676' : '#00d2ff'; 
                 tCtx.fillRect(-player.size/2, -player.size/2, player.size, player.size); 
                 tCtx.fillStyle = '#fff'; tCtx.fillRect(0, -3, 22, 6); 
                 tCtx.restore(); 
                 if (activePowerup.type === 'shield') { tCtx.beginPath(); tCtx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2); tCtx.strokeStyle = "rgba(0, 210, 255, 0.8)"; tCtx.lineWidth = 4; tCtx.stroke(); } 
             }
+
             tCtx.restore(); 
 
-            tCtx.resetTransform(); tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70); tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left"; tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
+            tCtx.resetTransform();
+            tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70);
+            tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left";
+            tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
             for(let i=0; i<player.maxHp; i++) { tCtx.fillStyle = i < player.hp ? '#ff3366' : '#555'; tCtx.font = "20px Arial"; tCtx.fillText("❤", 20 + i * 22, 65); }
         }
 
@@ -717,15 +728,13 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            // PC WASD Move
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if (!keys['touch_aim']) player.facingAngle = -Math.PI/2; }
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if (!keys['touch_aim']) player.facingAngle = Math.PI/2; }
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if (!keys['touch_aim']) player.facingAngle = Math.PI; }
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if (!keys['touch_aim']) player.facingAngle = 0; }
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(!keys['touch_aim']) player.facingAngle = -Math.PI/2; }
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(!keys['touch_aim']) player.facingAngle = Math.PI/2; }
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(!keys['touch_aim']) player.facingAngle = Math.PI; }
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(!keys['touch_aim']) player.facingAngle = 0; }
 
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
-            // Auto Shoot when rapid fire active
             if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { 
                 let targetX = player.x + Math.cos(player.facingAngle) * 300;
                 let targetY = player.y + Math.sin(player.facingAngle) * 300;
@@ -737,7 +746,7 @@
                 if (Math.hypot(player.x - d.x, player.y - d.y) < player.size + 15) {
                     soundWin(); 
                     if(d.isSpecial) { player.hp = player.maxHp; gainExp(player.maxExp); 
-                    } else { let types = [{ n: 'Shield 🛡️', t: 'shield' }, { n: 'Rapid Fire 🔫', t: 'rapid' }, { n: 'Speed Boost ⚡', t: 'speed' }]; let p = types[Math.floor(Math.random() * types.length)]; activePowerup = { type: p.t, endTime: Date.now() + (p.t==='rapid'?3000:10000) }; document.getElementById('tank-power').innerText = p.n; }
+                    } else { let types = [{ n: 'Shield 🛡️', t: 'shield' }, { n: 'Rapid Fire 🔫', t: 'rapid' }, { n: 'Speed Boost ⚡', t: 'speed' }]; let p = types[Math.floor(Math.random() * types.length)]; activePowerup = { type: p.t, endTime: Date.now() + (p.t==='rapid'?4500:10000) }; document.getElementById('tank-power').innerText = p.n; }
                     drops.splice(i, 1);
                 }
             }
@@ -817,23 +826,22 @@
             drawTankFrame(); activeAnimationFrames.push(requestAnimationFrame(loopTank));
         }
 
-        // PC Controls
         window.addEventListener('keydown', e => { 
-            if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return; 
+            if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             keys[e.key.toLowerCase()] = true; 
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         
-        tCanvas.addEventListener('mousemove', e => { 
+        tCanvas.addEventListener('mousemove', e => {
             const rect = tCanvas.getBoundingClientRect(); 
             mouseX = (e.clientX - rect.left) * (tCanvas.width / rect.width); 
-            mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height); 
-            if (player) {
+            mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height);
+            // Rotate tank barrel natively to follow mouse on PC
+            if (player && !keys['touch_aim']) {
                 player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
             }
         });
 
-        // Accurate Touch Shoot on Canvas
         function handleCanvasTapShoot(screenX, screenY) {
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if(!player) return;
@@ -842,9 +850,12 @@
             let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width);
             let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
             
-            // Accurate world coordinate calculation relative to player
             let targetX = canvasX + camX;
             let targetY = canvasY + camY;
+            
+            // Aim straight at tap!
+            player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
+            keys['touch_aim'] = true; // Tell game to use touch angle instead of mouse
             
             if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) {
                 firePlayerBullet(targetX, targetY);
