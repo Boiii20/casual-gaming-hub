@@ -157,11 +157,11 @@
             <div class="mobile-controls">
                 <div class="dpad-grid">
                     <div></div>
-                    <button class="touch-btn" ontouchstart="handleSnakeKey('w')" onclick="handleSnakeKey('w')">▲</button>
+                    <button class="touch-btn" ontouchstart="handleSnakeKey('w', event)" onmousedown="handleSnakeKey('w', event)">▲</button>
                     <div></div>
-                    <button class="touch-btn" ontouchstart="handleSnakeKey('a')" onclick="handleSnakeKey('a')">◀</button>
-                    <button class="touch-btn" ontouchstart="handleSnakeKey('s')" onclick="handleSnakeKey('s')">▼</button>
-                    <button class="touch-btn" ontouchstart="handleSnakeKey('d')" onclick="handleSnakeKey('d')">▶</button>
+                    <button class="touch-btn" ontouchstart="handleSnakeKey('a', event)" onmousedown="handleSnakeKey('a', event)">◀</button>
+                    <button class="touch-btn" ontouchstart="handleSnakeKey('s', event)" onmousedown="handleSnakeKey('s', event)">▼</button>
+                    <button class="touch-btn" ontouchstart="handleSnakeKey('d', event)" onmousedown="handleSnakeKey('d', event)">▶</button>
                 </div>
             </div>
             <p class="desktop-hint"><em>Swipe or use W/A/S/D / Arrow Keys</em></p>
@@ -214,8 +214,8 @@
             
             <div class="mobile-controls">
                 <div style="display:flex; gap:20px; justify-content:center;">
-                    <button class="touch-btn" ontouchstart="pUp=true" ontouchend="pUp=false" onmousedown="pUp=true" onmouseup="pUp=false">▲ UP</button>
-                    <button class="touch-btn" ontouchstart="pDown=true" ontouchend="pDown=false" onmousedown="pDown=true" onmouseup="pDown=false">▼ DOWN</button>
+                    <button class="touch-btn" ontouchstart="pUp=true; event.preventDefault();" ontouchend="pUp=false; event.preventDefault();" onmousedown="pUp=true" onmouseup="pUp=false">▲ UP</button>
+                    <button class="touch-btn" ontouchstart="pDown=true; event.preventDefault();" ontouchend="pDown=false; event.preventDefault();" onmousedown="pDown=true" onmouseup="pDown=false">▼ DOWN</button>
                 </div>
             </div>
             <p class="desktop-hint"><em>Drag on screen or use W/S / Up/Down Keys</em></p>
@@ -253,11 +253,11 @@
                         <span class="control-label">🕹️ MOVE</span>
                         <div class="dpad-grid">
                             <div></div>
-                            <button class="touch-btn" ontouchstart="setTankMove('w', true, -Math.PI/2, event)" ontouchend="setTankMove('w', false, null, event)">▲</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('w', true, event)" ontouchend="setTankMove('w', false, event)" onmousedown="setTankMove('w', true, event)" onmouseup="setTankMove('w', false, event)">▲</button>
                             <div></div>
-                            <button class="touch-btn" ontouchstart="setTankMove('a', true, Math.PI, event)" ontouchend="setTankMove('a', false, null, event)">◀</button>
-                            <button class="touch-btn" ontouchstart="setTankMove('s', true, Math.PI/2, event)" ontouchend="setTankMove('s', false, null, event)">▼</button>
-                            <button class="touch-btn" ontouchstart="setTankMove('d', true, 0, event)" ontouchend="setTankMove('d', false, null, event)">▶</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('a', true, event)" ontouchend="setTankMove('a', false, event)" onmousedown="setTankMove('a', true, event)" onmouseup="setTankMove('a', false, event)">◀</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('s', true, event)" ontouchend="setTankMove('s', false, event)" onmousedown="setTankMove('s', true, event)" onmouseup="setTankMove('s', false, event)">▼</button>
+                            <button class="touch-btn" ontouchstart="setTankMove('d', true, event)" ontouchend="setTankMove('d', false, event)" onmousedown="setTankMove('d', true, event)" onmouseup="setTankMove('d', false, event)">▶</button>
                         </div>
                     </div>
 
@@ -266,13 +266,13 @@
                         <span class="control-label">🎯 SHOOT</span>
                         <div class="dpad-grid">
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(-Math.PI/2, event)" onclick="shootInDirection(-Math.PI/2, event)">▲</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(-Math.PI/2, event)" onmousedown="shootInDirection(-Math.PI/2, event)">▲</button>
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI, event)" onclick="shootInDirection(Math.PI, event)">◀</button>
-                            <button class="touch-btn fire-btn-main" ontouchstart="shootMobileCurrentFacing(event)" onclick="shootMobileCurrentFacing(event)">🔥</button>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(0, event)" onclick="shootInDirection(0, event)">▶</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI, event)" onmousedown="shootInDirection(Math.PI, event)">◀</button>
+                            <button class="touch-btn fire-btn-main" ontouchstart="shootMobileCurrentFacing(event)" onmousedown="shootMobileCurrentFacing(event)">🔥</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(0, event)" onmousedown="shootInDirection(0, event)">▶</button>
                             <div></div>
-                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI/2, event)" onclick="shootInDirection(Math.PI/2, event)">▼</button>
+                            <button class="touch-btn fire-dir-btn" ontouchstart="shootInDirection(Math.PI/2, event)" onmousedown="shootInDirection(Math.PI/2, event)">▼</button>
                             <div></div>
                         </div>
                     </div>
@@ -312,11 +312,9 @@
         function updateFSButton() {
             const fsBtn = document.getElementById('fs-btn');
             if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
-                fsBtn.innerHTML = "🗗 Exit Fullscreen";
-                fsBtn.classList.add('fs-active');
+                fsBtn.innerHTML = "🗗 Exit Fullscreen"; fsBtn.classList.add('fs-active');
             } else {
-                fsBtn.innerHTML = "⛶ Fullscreen";
-                fsBtn.classList.remove('fs-active');
+                fsBtn.innerHTML = "⛶ Fullscreen"; fsBtn.classList.remove('fs-active');
             }
         }
         document.addEventListener('fullscreenchange', updateFSButton);
@@ -345,7 +343,8 @@
         function soundLose() { playTone(300, 'sawtooth', 0.3); }
 
         // --- GLOBAL SYSTEM & TUTORIALS ---
-        let activeIntervals = [], activeAnimationFrames = [], activeTimeouts = [];
+        let activeIntervals = [], activeTimeouts = [];
+        let globalRAF = null; // OPTIMIZATION: Single reference to stop memory leak
         let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
 
         const tutorials = {
@@ -360,8 +359,10 @@
         let tutShown = {};
 
         function clearAllGameLoops() {
-            activeIntervals.forEach(clearInterval); activeAnimationFrames.forEach(cancelAnimationFrame); activeTimeouts.forEach(clearTimeout);
-            activeIntervals = []; activeAnimationFrames = []; activeTimeouts = [];
+            activeIntervals.forEach(clearInterval); 
+            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; }
+            activeTimeouts.forEach(clearTimeout);
+            activeIntervals = []; activeTimeouts = [];
             const snakeBtn = document.getElementById('snake-btn'); if(snakeBtn) snakeBtn.style.display = 'block';
         }
 
@@ -370,7 +371,15 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
             const homeBtn = document.getElementById('home-btn');
-            viewId === 'home-view' ? homeBtn.classList.add('hidden') : homeBtn.classList.remove('hidden');
+            
+            if (viewId === 'home-view') {
+                homeBtn.classList.add('hidden');
+                document.body.classList.remove('no-scroll');
+            } else {
+                homeBtn.classList.remove('hidden');
+                document.body.classList.add('no-scroll'); // Lock scrolling on mobile
+                window.scrollTo(0, 0);
+            }
 
             if (tutorials[viewId] && !tutShown[viewId]) {
                 document.getElementById('tut-title').innerText = tutorials[viewId].t;
@@ -419,9 +428,7 @@
         function makeTTTMove(index, player) { tttBoard[index] = player; tttCells[index].innerText = player; tttCells[index].classList.add(player.toLowerCase()); checkTTTWin(player); } 
         function aiTTTMove() { 
             if(!tttGameActive) return; 
-            let diff = document.getElementById('ttt-diff').value; 
-            let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); 
-            if(empty.length === 0) return; 
+            let diff = document.getElementById('ttt-diff').value; let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); if(empty.length === 0) return; 
             let move = empty[Math.floor(Math.random() * empty.length)]; 
             if (diff === 'medium' && Math.random() > 0.5) move = getSmartTTTMove(); 
             if (diff === 'hard' && Math.random() > 0.15) move = getSmartTTTMove(); 
@@ -442,10 +449,8 @@
             for (let l of lines) { 
                 if (tttBoard[l[0]]===player && tttBoard[l[1]]===player && tttBoard[l[2]]===player) { 
                     document.getElementById('ttt-turn').innerText = player === "X" ? "You Win!" : "AI Wins!"; 
-                    tttGameActive = false; player === "X" ? scores.ttt.x++ : scores.ttt.o++; 
-                    document.getElementById(`score-${player.toLowerCase()}`).innerText = scores.ttt[player.toLowerCase()]; 
-                    l.forEach(i => tttCells[i].classList.add('win-highlight')); 
-                    player === "X" ? soundWin() : soundLose(); return; 
+                    tttGameActive = false; player === "X" ? scores.ttt.x++ : scores.ttt.o++; document.getElementById(`score-${player.toLowerCase()}`).innerText = scores.ttt[player.toLowerCase()]; 
+                    l.forEach(i => tttCells[i].classList.add('win-highlight')); player === "X" ? soundWin() : soundLose(); return; 
                 } 
             } 
             if (!tttBoard.includes("")) { document.getElementById('ttt-turn').innerText = "It's a Draw!"; tttGameActive = false; scores.ttt.draw++; document.getElementById('score-draw').innerText = scores.ttt.draw; soundLose(); } 
@@ -455,8 +460,7 @@
         // --- 2. ROCK PAPER SCISSORS ---
         let rpsHistory = { Rock: 0, Paper: 0, Scissors: 0 }; 
         function playRPS(pChoice) { 
-            soundClick(); const options = ["Rock", "Paper", "Scissors"]; 
-            let diff = document.getElementById('rps-diff').value; let cChoice = options[Math.floor(Math.random() * 3)]; 
+            soundClick(); const options = ["Rock", "Paper", "Scissors"]; let diff = document.getElementById('rps-diff').value; let cChoice = options[Math.floor(Math.random() * 3)]; 
             if (diff === 'hard' || diff === 'ultra') { let highest = Object.keys(rpsHistory).reduce((a, b) => rpsHistory[a] > rpsHistory[b] ? a : b); if (rpsHistory[highest] > 0) { if(highest === "Rock") cChoice = "Paper"; if(highest === "Paper") cChoice = "Scissors"; if(highest === "Scissors") cChoice = "Rock"; } } 
             if (diff === 'ultra' && Math.random() < 0.4) { if(pChoice === "Rock") cChoice = "Paper"; if(pChoice === "Paper") cChoice = "Scissors"; if(pChoice === "Scissors") cChoice = "Rock"; } 
             rpsHistory[pChoice]++; let msg = "", color = ""; 
@@ -479,8 +483,7 @@
         resetGuessGame(); 
         function makeGuess() { 
             const input = document.getElementById('guess-input'); const guess = parseInt(input.value); const res = document.getElementById('guess-result'); 
-            if (isNaN(guess) || guess < 1 || guess > guessMax) return res.innerHTML = "Invalid number!"; 
-            guessAttempts++; 
+            if (isNaN(guess) || guess < 1 || guess > guessMax) return res.innerHTML = "Invalid number!"; guessAttempts++; 
             if (guess === guessTarget) { res.innerHTML = `<span style="color: #00e676;">🎉 Correct! It was ${guessTarget} in ${guessAttempts} tries.</span>`; scores.guess.w++; document.getElementById('guess-w').innerText = scores.guess.w; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundWin(); 
             } else { if (guessAttempts >= ultraLimit) { res.innerHTML = `<span style="color: #ff5252;">💀 You failed! Number was ${guessTarget}.</span>`; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundLose(); } else { res.innerHTML = guess < guessTarget ? `Too low! (Tries: ${guessAttempts})` : `Too high! (Tries: ${guessAttempts})`; soundClick(); } } 
             input.value = ""; input.focus(); 
@@ -490,7 +493,14 @@
         const sCanvas = document.getElementById('snake-canvas'), sCtx = sCanvas.getContext('2d');
         let snake, sFood, sDx, sDy, sScore;
         function drawSnakeFrame() { sCtx.fillStyle = '#1e1e2f'; sCtx.fillRect(0, 0, 400, 400); sCtx.fillStyle = '#ff3366'; sCtx.fillRect(sFood.x, sFood.y, 20, 20); sCtx.fillStyle = '#00e676'; snake.forEach(part => sCtx.fillRect(part.x, part.y, 18, 18)); }
-        function handleSnakeKey(key) { const k = key.toLowerCase(); if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } }
+        function handleSnakeKey(key, event) { 
+            if(event) { event.preventDefault(); event.stopPropagation(); }
+            const k = key.toLowerCase(); 
+            if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } 
+            if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } 
+            if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } 
+            if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } 
+        }
         function startSnake() { clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'none'; snake = [{x: 200, y: 200}]; sDx = 20; sDy = 0; sScore = 0; let diff = document.getElementById('snake-diff').value; let speed = diff==='easy' ? 150 : diff==='medium' ? 100 : diff==='hard' ? 60 : 40; sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; document.getElementById('snake-score').innerText = sScore; runCountdown(drawSnakeFrame, sCtx, 400, 400, () => { activeIntervals.push(setInterval(updateSnake, speed)); }); }
         function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'block'; return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
         window.addEventListener('keydown', e => { if(!document.getElementById('snake-view').classList.contains('hidden')) handleSnakeKey(e.key); });
@@ -505,7 +515,7 @@
         // --- 6. PONG ---
         const pCanvas = document.getElementById('pong-canvas'), pCtx = pCanvas.getContext('2d'); let pY = 160, aiY = 160, ball = {x: 300, y: 200, dx: 4, dy: 4}; let pUp = false, pDown = false;
         function startPong() { clearAllGameLoops(); pY = 160; aiY = 160; ball = {x: 300, y: 200, dx: 5, dy: 5}; loopPong(); }
-        function loopPong() { let diff = document.getElementById('pong-diff').value; let aiSpeed = diff==='easy' ? 2 : diff==='medium' ? 4 : diff==='hard' ? 6 : 9; if(pUp && pY > 0) pY -= 6; if(pDown && pY < 320) pY += 6; if(aiY + 40 < ball.y - 10) aiY += aiSpeed; if(aiY + 40 > ball.y + 10) aiY -= aiSpeed; ball.x += ball.dx; ball.y += ball.dy; if(ball.y <= 0 || ball.y >= 400) ball.dy *= -1; if(ball.x <= 20 && ball.x > 0 && ball.y > pY && ball.y < pY + 80) { ball.x = 21; ball.dx *= -1.1; soundClick(); } if(ball.x >= 580 && ball.x < 600 && ball.y > aiY && ball.y < aiY + 80) { ball.x = 579; ball.dx *= -1.1; soundClick(); } if(ball.x < 0) { scores.pong.p2++; document.getElementById('pong-p2').innerText = scores.pong.p2; soundLose(); ball = {x: 300, y: 200, dx: 5, dy: 5}; } if(ball.x > 600) { scores.pong.p1++; document.getElementById('pong-p1').innerText = scores.pong.p1; soundWin(); ball = {x: 300, y: 200, dx: -5, dy: 5}; } pCtx.fillStyle = '#1e1e2f'; pCtx.fillRect(0, 0, 600, 400); pCtx.fillStyle = '#00d2ff'; pCtx.fillRect(10, pY, 10, 80); pCtx.fillStyle = '#ff3366'; pCtx.fillRect(580, aiY, 10, 80); pCtx.fillStyle = '#fff'; pCtx.beginPath(); pCtx.arc(ball.x, ball.y, 8, 0, Math.PI*2); pCtx.fill(); activeAnimationFrames.push(requestAnimationFrame(loopPong)); }
+        function loopPong() { let diff = document.getElementById('pong-diff').value; let aiSpeed = diff==='easy' ? 2 : diff==='medium' ? 4 : diff==='hard' ? 6 : 9; if(pUp && pY > 0) pY -= 6; if(pDown && pY < 320) pY += 6; if(aiY + 40 < ball.y - 10) aiY += aiSpeed; if(aiY + 40 > ball.y + 10) aiY -= aiSpeed; ball.x += ball.dx; ball.y += ball.dy; if(ball.y <= 0 || ball.y >= 400) ball.dy *= -1; if(ball.x <= 20 && ball.x > 0 && ball.y > pY && ball.y < pY + 80) { ball.x = 21; ball.dx *= -1.1; soundClick(); } if(ball.x >= 580 && ball.x < 600 && ball.y > aiY && ball.y < aiY + 80) { ball.x = 579; ball.dx *= -1.1; soundClick(); } if(ball.x < 0) { scores.pong.p2++; document.getElementById('pong-p2').innerText = scores.pong.p2; soundLose(); ball = {x: 300, y: 200, dx: 5, dy: 5}; } if(ball.x > 600) { scores.pong.p1++; document.getElementById('pong-p1').innerText = scores.pong.p1; soundWin(); ball = {x: 300, y: 200, dx: -5, dy: 5}; } pCtx.fillStyle = '#1e1e2f'; pCtx.fillRect(0, 0, 600, 400); pCtx.fillStyle = '#00d2ff'; pCtx.fillRect(10, pY, 10, 80); pCtx.fillStyle = '#ff3366'; pCtx.fillRect(580, aiY, 10, 80); pCtx.fillStyle = '#fff'; pCtx.beginPath(); pCtx.arc(ball.x, ball.y, 8, 0, Math.PI*2); pCtx.fill(); globalRAF = requestAnimationFrame(loopPong); }
         window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=true; if(k==='arrowdown' || k==='s') pDown=true; }); window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=false; if(k==='arrowdown' || k==='s') pDown=false; });
         pCanvas.addEventListener('touchmove', e => { const rect = pCanvas.getBoundingClientRect(); let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); pY = Math.max(0, Math.min(320, touchY - 40)); e.preventDefault(); }, {passive: false});
 
@@ -528,12 +538,9 @@
         window.addEventListener('blur', () => { keys = {}; });
 
         // D-Pad Movement logic
-        function setTankMove(k, val, angle, event) {
+        function setTankMove(k, val, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             keys[k.toLowerCase()] = val;
-            if (val && angle !== null && player) {
-                player.facingAngle = angle; 
-            }
         }
 
         // Quick Shoot in direction from Mobile
@@ -541,7 +548,7 @@
             if (event) { event.stopPropagation(); event.preventDefault(); }
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player) {
-                player.facingAngle = angle;
+                player.facingAngle = angle; // SNAP to angle
                 if (Date.now() - lastManualShot > player.fireCooldown) {
                     let targetX = player.x + Math.cos(angle) * 300;
                     let targetY = player.y + Math.sin(angle) * 300;
@@ -551,14 +558,13 @@
             }
         }
 
-        // Shoot directly forward (No Auto Aim)
+        // Shoot directly forward (Strictly current facing angle, NO auto aim)
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (!player) return;
 
-            let angle = player.facingAngle; // Fixed: Now shoots straight ahead exactly where tank points
-
+            let angle = player.facingAngle; // Fixed: strictly forward
             if (Date.now() - lastManualShot > player.fireCooldown) {
                 let targetX = player.x + Math.cos(angle) * 300;
                 let targetY = player.y + Math.sin(angle) * 300;
@@ -585,10 +591,16 @@
         }
 
         function hasLineOfSight(x1, y1, x2, y2) {
-            let dist = Math.hypot(x2-x1, y2-y1); let steps = Math.ceil(dist / 20);
-            for(let i=0; i<=steps; i++) {
-                let tx = x1 + (x2 - x1) * (i/steps); let ty = y1 + (y2 - y1) * (i/steps);
-                if(obstacles.some(o => tx > o.x && tx < o.x + o.w && ty > o.y && ty < o.y + o.h)) return false;
+            // Optimized bounding box LOS
+            let minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+            let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            for(let o of obstacles) {
+                if (maxX < o.x || minX > o.x + o.w || maxY < o.y || minY > o.y + o.h) continue; // Reject fast
+                let dist = Math.hypot(x2-x1, y2-y1); let steps = Math.ceil(dist / 20);
+                for(let i=0; i<=steps; i++) {
+                    let tx = x1 + (x2 - x1) * (i/steps); let ty = y1 + (y2 - y1) * (i/steps);
+                    if(tx > o.x && tx < o.x + o.w && ty > o.y && ty < o.y + o.h) return false;
+                }
             }
             return true;
         }
@@ -633,7 +645,6 @@
 
         function firePlayerBullet(targetX, targetY) {
             let baseAngle = Math.atan2(targetY - player.y, targetX - player.x); 
-            player.facingAngle = baseAngle; // Sync aim perfectly
             soundClick();
             if (player.multishot === 1) { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
             } else { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle-0.1)*10, dy: Math.sin(baseAngle-0.1)*10 }); bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle+0.1)*10, dy: Math.sin(baseAngle+0.1)*10 }); }
@@ -728,10 +739,16 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(!keys['touch_aim']) player.facingAngle = -Math.PI/2; }
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(!keys['touch_aim']) player.facingAngle = Math.PI/2; }
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(!keys['touch_aim']) player.facingAngle = Math.PI; }
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(!keys['touch_aim']) player.facingAngle = 0; }
+            let isMoving = false;
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; player.facingAngle = -Math.PI/2; isMoving = true;}
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; player.facingAngle = Math.PI/2; isMoving = true;}
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; player.facingAngle = Math.PI; isMoving = true;}
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; player.facingAngle = 0; isMoving = true;}
+
+            // Allow mouse to override facing angle ONLY if moving via keyboard and mouse is active
+            if (inputMode === 'mouse' && isMoving) {
+                player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
+            }
 
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
@@ -746,7 +763,7 @@
                 if (Math.hypot(player.x - d.x, player.y - d.y) < player.size + 15) {
                     soundWin(); 
                     if(d.isSpecial) { player.hp = player.maxHp; gainExp(player.maxExp); 
-                    } else { let types = [{ n: 'Shield 🛡️', t: 'shield' }, { n: 'Rapid Fire 🔫', t: 'rapid' }, { n: 'Speed Boost ⚡', t: 'speed' }]; let p = types[Math.floor(Math.random() * types.length)]; activePowerup = { type: p.t, endTime: Date.now() + (p.t==='rapid'?4500:10000) }; document.getElementById('tank-power').innerText = p.n; }
+                    } else { let types = [{ n: 'Shield 🛡️', t: 'shield' }, { n: 'Rapid Fire 🔫', t: 'rapid' }, { n: 'Speed Boost ⚡', t: 'speed' }]; let p = types[Math.floor(Math.random() * types.length)]; activePowerup = { type: p.t, endTime: Date.now() + (p.t==='rapid'?3000:10000) }; document.getElementById('tank-power').innerText = p.n; }
                     drops.splice(i, 1);
                 }
             }
@@ -823,26 +840,26 @@
             for(let i=enemyBullets.length-1; i>=0; i--) { let b = enemyBullets[i]; b.x += b.dx; b.y += b.dy; if(obstacles.some(o => b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h)) { enemyBullets.splice(i,1); continue; } if(Math.hypot(player.x - b.x, player.y - b.y) < player.size) { damagePlayer(1); enemyBullets.splice(i,1); continue; } if(b.x<0||b.x>WORLD_W||b.y<0||b.y>WORLD_H) enemyBullets.splice(i,1); }
             for(let i=blueBullets.length-1; i>=0; i--) { let bb = blueBullets[i]; bb.age += 16; let tAngle = Math.atan2(player.y - bb.y, player.x - bb.x); if(bb.age < 4000) bb.speed = 1.5; else bb.speed += 0.05; bb.x += Math.cos(tAngle)*bb.speed; bb.y += Math.sin(tAngle)*bb.speed; if(obstacles.some(o => bb.x > o.x && bb.x < o.x + o.w && bb.y > o.y && bb.y < o.y + o.h)) { blueBullets.splice(i,1); continue; } if(Math.hypot(player.x - bb.x, player.y - bb.y) < player.size) { damagePlayer(1); blueBullets.splice(i,1); continue; } let shot = false; for(let j=bullets.length-1; j>=0; j--) { if(Math.hypot(bullets[j].x - bb.x, bullets[j].y - bb.y) < 15) { blueBullets.splice(i,1); bullets.splice(j,1); shot = true; break; } } if(shot) continue; }
 
-            drawTankFrame(); activeAnimationFrames.push(requestAnimationFrame(loopTank));
+            globalRAF = requestAnimationFrame(loopTank);
         }
 
+        let inputMode = 'mouse';
         window.addEventListener('keydown', e => { 
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
-            keys[e.key.toLowerCase()] = true; 
+            inputMode = 'keyboard'; keys[e.key.toLowerCase()] = true; 
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         
         tCanvas.addEventListener('mousemove', e => {
-            const rect = tCanvas.getBoundingClientRect(); 
-            mouseX = (e.clientX - rect.left) * (tCanvas.width / rect.width); 
-            mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height);
-            // Rotate tank barrel natively to follow mouse on PC
-            if (player && !keys['touch_aim']) {
+            inputMode = 'mouse';
+            const rect = tCanvas.getBoundingClientRect(); mouseX = (e.clientX - rect.left) * (tCanvas.width / rect.width); mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height);
+            if(player && !document.getElementById('tank-game-ui').classList.contains('hidden')) {
                 player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
             }
         });
 
         function handleCanvasTapShoot(screenX, screenY) {
+            inputMode = 'touch';
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if(!player) return;
 
@@ -850,28 +867,16 @@
             let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width);
             let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
             
-            let targetX = canvasX + camX;
-            let targetY = canvasY + camY;
-            
-            // Aim straight at tap!
+            let targetX = canvasX + camX; let targetY = canvasY + camY;
             player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
-            keys['touch_aim'] = true; // Tell game to use touch angle instead of mouse
             
             if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) {
-                firePlayerBullet(targetX, targetY);
-                lastManualShot = Date.now();
+                firePlayerBullet(targetX, targetY); lastManualShot = Date.now();
             }
         }
 
-        tCanvas.addEventListener('mousedown', e => {
-            handleCanvasTapShoot(e.clientX, e.clientY);
-        });
-
-        tCanvas.addEventListener('touchstart', e => {
-            let touch = e.touches[0];
-            handleCanvasTapShoot(touch.clientX, touch.clientY);
-            e.preventDefault();
-        }, {passive: false});
+        tCanvas.addEventListener('mousedown', e => { handleCanvasTapShoot(e.clientX, e.clientY); });
+        tCanvas.addEventListener('touchstart', e => { let touch = e.touches[0]; handleCanvasTapShoot(touch.clientX, touch.clientY); e.preventDefault(); }, {passive: false});
 
     </script>
 </body>
