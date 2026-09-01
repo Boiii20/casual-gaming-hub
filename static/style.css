@@ -57,9 +57,47 @@ main { flex: 1; width: 100%; max-width: 1000px; margin: 0 auto; padding: 40px 20
 
 /* --- MOBILE ON-SCREEN CONTROLS --- */
 .mobile-controls { display: flex; justify-content: center; margin: 15px 0 5px 0; user-select: none; }
-.dpad-grid { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(2, 60px); gap: 8px; justify-content: center; }
-.touch-btn { width: 60px; height: 60px; background: rgba(255, 255, 255, 0.1); border: 2px solid var(--accent-primary); border-radius: 12px; color: var(--accent-primary); font-size: 1.4rem; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
-.touch-btn:active { background: var(--accent-primary); color: #000; transform: scale(0.95); }
+.tank-mobile-panel {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 20px;
+    max-width: 600px;
+    margin: 15px auto;
+}
+.control-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.control-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+}
+.dpad-grid { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; }
+
+.touch-btn { 
+    width: 52px; height: 52px; 
+    background: rgba(255, 255, 255, 0.08); 
+    border: 2px solid var(--accent-primary); 
+    border-radius: 12px; 
+    color: var(--accent-primary); 
+    font-size: 1.3rem; font-weight: bold; 
+    display: flex; justify-content: center; align-items: center; 
+    cursor: pointer; user-select: none; -webkit-user-select: none; 
+    touch-action: manipulation; 
+}
+.touch-btn:active { background: var(--accent-primary); color: #000; transform: scale(0.92); }
+
+.fire-dir-btn { border-color: var(--neon-orange); color: var(--neon-orange); }
+.fire-dir-btn:active { background: var(--neon-orange); color: #000; }
+
+.fire-btn-main { border-color: var(--neon-red); color: var(--neon-red); font-size: 1.5rem; background: rgba(255, 51, 102, 0.15); }
+.fire-btn-main:active { background: var(--neon-red); color: #fff; }
+
 .desktop-hint { color: var(--text-dim); font-size: 0.9rem; margin-top: 5px; }
 
 /* --- TANK MENU --- */
@@ -114,4 +152,7 @@ footer .rainbow-glow { font-size: 2rem !important; margin-top: 10px !important; 
     .guess-controls input { margin-bottom: 15px; width: 100%; }
     .game-controls { flex-direction: column; gap: 10px; }
     .game-title { font-size: 1.8rem; }
+    .tank-mobile-panel { gap: 10px; }
+    .dpad-grid { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 46px); gap: 4px; }
+    .touch-btn { width: 46px; height: 46px; font-size: 1.1rem; }
 }
