@@ -261,7 +261,7 @@
                         </div>
                     </div>
 
-                    <!-- Right: Quick Fire & Directional Aim Shooting -->
+                    <!-- Right: Directional Aim Shooting (NO AUTO AIM) -->
                     <div class="control-zone">
                         <span class="control-label">🎯 SHOOT</span>
                         <div class="dpad-grid">
@@ -293,6 +293,13 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // --- GLOBALS & OPTIMIZATION ---
+        let activeIntervals = [], activeTimeouts = [];
+        let globalRAF = null; // Single Animation Frame Reference for Lag-Free rendering
+        let inputMode = 'mouse'; // Tracks if user is playing via mouse or touch
+        
+        let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
+
         // --- FULLSCREEN ENGINE ---
         function toggleFullScreen() {
             soundClick();
@@ -319,8 +326,6 @@
         }
         document.addEventListener('fullscreenchange', updateFSButton);
         document.addEventListener('webkitfullscreenchange', updateFSButton);
-        document.addEventListener('mozfullscreenchange', updateFSButton);
-        document.addEventListener('MSFullscreenChange', updateFSButton);
 
         // --- AUDIO ENGINE ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -329,38 +334,31 @@
             if (!audioCtx) return;
             try {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
                 osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration);
             } catch (err) {}
         }
         function soundClick() { playTone(400, 'square', 0.1); }
         function soundWin() { playTone(600, 'sine', 0.1); setTimeout(() => playTone(800, 'sine', 0.3), 100); }
         function soundLose() { playTone(300, 'sawtooth', 0.3); }
 
-        // --- GLOBAL SYSTEM & TUTORIALS ---
-        let activeIntervals = [], activeTimeouts = [];
-        let globalRAF = null; // OPTIMIZATION: Single reference to stop memory leak
-        let scores = { ttt: {x:0, o:0, draw:0}, rps: {w:0, l:0, t:0}, guess: {w:0}, snake: {best:0}, mole: {best:0}, pong: {p1:0, p2:0}, tank: {best:0} };
-
+        // --- TUTORIALS ---
         const tutorials = {
             'ttt-view': { t: '❌ Tic-Tac-Toe', m: '🎮 Tap or click any empty cell to place your X. Get 3 in a row to win! Change difficulty to challenge smarter AI.' },
             'rps-view': { t: '✊ Rock, Paper, Scissors', m: '🎮 Tap a button to make your choice. The AI adapts to your patterns on Hard and reads your mind on Ultra!' },
-            'guess-view': { t: '🔢 Number Guesser', m: '🎮 Enter a number and tap Guess. The game will tell you if you are too high or too low. Find the secret number!' },
-            'snake-view': { t: '🐍 Snake', m: '🎮 PC: [W][A][S][D] or [Arrows]\n📱 Mobile: Swipe on screen or tap the on-screen arrows.\n\nEat red food to grow. Avoid walls and your own tail!' },
-            'mole-view': { t: '🔨 Whack-a-Mole', m: '🎮 Tap the mice (🐭) for points and clocks (⏰) for time. Avoid the bombs (💣) or it is an instant Game Over!' },
-            'pong-view': { t: '🏓 Pong 2D', m: '🎮 PC: [W][S] or [Up][Down] keys\n📱 Mobile: Slide finger on screen or use ▲/▼ buttons.\n\nDeflect the ball past the AI paddle to score!' },
-            'tank-view': { t: '🚀 Tank Survival RPG', m: '🎮 PC: [W][A][S][D] to Move, Mouse to Aim & Click to Shoot.\n📱 Mobile: Use the Left D-Pad to move, and use the Right Buttons (🔥 or ▲◀▼▶) or tap directly on screen to aim & shoot accurately!\n\nDestroy enemies for EXP, level up, collect powerups (?), hide behind black walls, and defeat the Emoji Bosses!' }
+            'guess-view': { t: '🔢 Number Guesser', m: '🎮 Enter a number and tap Guess. Find the secret number!' },
+            'snake-view': { t: '🐍 Snake', m: '🎮 PC: [W][A][S][D] or [Arrows]\n📱 Mobile: Swipe on screen or tap the arrows.\nEat red food to grow. Avoid walls and your own tail!' },
+            'mole-view': { t: '🔨 Whack-a-Mole', m: '🎮 Tap mice (🐭) for points, clocks (⏰) for time. Avoid bombs (💣)!' },
+            'pong-view': { t: '🏓 Pong 2D', m: '🎮 PC: [W][S] or [Up][Down] keys\n📱 Mobile: Slide finger on screen or use ▲/▼ buttons.' },
+            'tank-view': { t: '🚀 Tank Survival RPG', m: '🎮 PC: [W][A][S][D] Move, Mouse Aim & Click Shoot.\n📱 Mobile: Left D-Pad Move, Right D-Pad Shoot or Tap Canvas.\nDestroy enemies, level up, collect powerups (?), defeat Emoji Bosses!' }
         };
         let tutShown = {};
 
         function clearAllGameLoops() {
             activeIntervals.forEach(clearInterval); 
-            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; }
+            if(globalRAF) { cancelAnimationFrame(globalRAF); globalRAF = null; } // Fixed freeze/leak
             activeTimeouts.forEach(clearTimeout);
             activeIntervals = []; activeTimeouts = [];
             const snakeBtn = document.getElementById('snake-btn'); if(snakeBtn) snakeBtn.style.display = 'block';
@@ -371,15 +369,7 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(viewId).classList.remove('hidden');
             const homeBtn = document.getElementById('home-btn');
-            
-            if (viewId === 'home-view') {
-                homeBtn.classList.add('hidden');
-                document.body.classList.remove('no-scroll');
-            } else {
-                homeBtn.classList.remove('hidden');
-                document.body.classList.add('no-scroll'); // Lock scrolling on mobile
-                window.scrollTo(0, 0);
-            }
+            viewId === 'home-view' ? homeBtn.classList.add('hidden') : homeBtn.classList.remove('hidden');
 
             if (tutorials[viewId] && !tutShown[viewId]) {
                 document.getElementById('tut-title').innerText = tutorials[viewId].t;
@@ -388,7 +378,6 @@
                 tutShown[viewId] = true;
             }
         }
-
         function closeTutorial() { document.getElementById('tutorial-modal').classList.add('hidden'); soundClick(); }
 
         function resetScores(game) {
@@ -419,90 +408,29 @@
 
         // --- 1. TIC-TAC-TOE ---
         let tttBoard = ["", "", "", "", "", "", "", "", ""]; let tttGameActive = true; const tttCells = document.querySelectorAll('.ttt-cell'); 
-        tttCells.forEach(cell => cell.addEventListener('click', (e) => { 
-            const index = e.target.getAttribute('data-index'); 
-            if (tttBoard[index] !== "" || !tttGameActive) return; 
-            soundClick(); makeTTTMove(index, "X"); 
-            if(tttGameActive) setTimeout(aiTTTMove, 300); 
-        }));
+        tttCells.forEach(cell => cell.addEventListener('click', (e) => { const index = e.target.getAttribute('data-index'); if (tttBoard[index] !== "" || !tttGameActive) return; soundClick(); makeTTTMove(index, "X"); if(tttGameActive) setTimeout(aiTTTMove, 300); }));
         function makeTTTMove(index, player) { tttBoard[index] = player; tttCells[index].innerText = player; tttCells[index].classList.add(player.toLowerCase()); checkTTTWin(player); } 
-        function aiTTTMove() { 
-            if(!tttGameActive) return; 
-            let diff = document.getElementById('ttt-diff').value; let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); if(empty.length === 0) return; 
-            let move = empty[Math.floor(Math.random() * empty.length)]; 
-            if (diff === 'medium' && Math.random() > 0.5) move = getSmartTTTMove(); 
-            if (diff === 'hard' && Math.random() > 0.15) move = getSmartTTTMove(); 
-            if (diff === 'ultra') move = getSmartTTTMove(); 
-            makeTTTMove(move, "O"); 
-        } 
-        function getSmartTTTMove() { 
-            const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; 
-            let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); 
-            for(let l of lines) { let [a,b,c] = l; let v = [tttBoard[a], tttBoard[b], tttBoard[c]]; if(v.filter(x=>x==='O').length===2 && v.includes("")) return l[v.indexOf("")]; } 
-            for(let l of lines) { let [a,b,c] = l; let v = [tttBoard[a], tttBoard[b], tttBoard[c]]; if(v.filter(x=>x==='X').length===2 && v.includes("")) return l[v.indexOf("")]; } 
-            if(tttBoard[4] === "") return 4; 
-            let corners = [0,2,6,8].filter(c => tttBoard[c]===""); if(corners.length > 0) return corners[Math.floor(Math.random()*corners.length)]; 
-            return empty[0]; 
-        } 
-        function checkTTTWin(player) { 
-            const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; 
-            for (let l of lines) { 
-                if (tttBoard[l[0]]===player && tttBoard[l[1]]===player && tttBoard[l[2]]===player) { 
-                    document.getElementById('ttt-turn').innerText = player === "X" ? "You Win!" : "AI Wins!"; 
-                    tttGameActive = false; player === "X" ? scores.ttt.x++ : scores.ttt.o++; document.getElementById(`score-${player.toLowerCase()}`).innerText = scores.ttt[player.toLowerCase()]; 
-                    l.forEach(i => tttCells[i].classList.add('win-highlight')); player === "X" ? soundWin() : soundLose(); return; 
-                } 
-            } 
-            if (!tttBoard.includes("")) { document.getElementById('ttt-turn').innerText = "It's a Draw!"; tttGameActive = false; scores.ttt.draw++; document.getElementById('score-draw').innerText = scores.ttt.draw; soundLose(); } 
-        } 
+        function aiTTTMove() { if(!tttGameActive) return; let diff = document.getElementById('ttt-diff').value; let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); if(empty.length === 0) return; let move = empty[Math.floor(Math.random() * empty.length)]; if (diff === 'medium' && Math.random() > 0.5) move = getSmartTTTMove(); if (diff === 'hard' && Math.random() > 0.15) move = getSmartTTTMove(); if (diff === 'ultra') move = getSmartTTTMove(); makeTTTMove(move, "O"); } 
+        function getSmartTTTMove() { const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; let empty = tttBoard.map((v, i) => v === "" ? i : null).filter(v => v !== null); for(let l of lines) { let [a,b,c] = l; let v = [tttBoard[a], tttBoard[b], tttBoard[c]]; if(v.filter(x=>x==='O').length===2 && v.includes("")) return l[v.indexOf("")]; } for(let l of lines) { let [a,b,c] = l; let v = [tttBoard[a], tttBoard[b], tttBoard[c]]; if(v.filter(x=>x==='X').length===2 && v.includes("")) return l[v.indexOf("")]; } if(tttBoard[4] === "") return 4; let corners = [0,2,6,8].filter(c => tttBoard[c]===""); if(corners.length > 0) return corners[Math.floor(Math.random()*corners.length)]; return empty[0]; } 
+        function checkTTTWin(player) { const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; for (let l of lines) { if (tttBoard[l[0]]===player && tttBoard[l[1]]===player && tttBoard[l[2]]===player) { document.getElementById('ttt-turn').innerText = player === "X" ? "You Win!" : "AI Wins!"; tttGameActive = false; player === "X" ? scores.ttt.x++ : scores.ttt.o++; document.getElementById(`score-${player.toLowerCase()}`).innerText = scores.ttt[player.toLowerCase()]; l.forEach(i => tttCells[i].classList.add('win-highlight')); player === "X" ? soundWin() : soundLose(); return; } } if (!tttBoard.includes("")) { document.getElementById('ttt-turn').innerText = "It's a Draw!"; tttGameActive = false; scores.ttt.draw++; document.getElementById('score-draw').innerText = scores.ttt.draw; soundLose(); } } 
         function resetTTT() { tttBoard = ["", "", "", "", "", "", "", "", ""]; tttGameActive = true; document.getElementById('ttt-turn').innerText = `Your Turn`; tttCells.forEach(cell => { cell.innerText = ""; cell.className = "ttt-cell"; }); }
 
         // --- 2. ROCK PAPER SCISSORS ---
         let rpsHistory = { Rock: 0, Paper: 0, Scissors: 0 }; 
-        function playRPS(pChoice) { 
-            soundClick(); const options = ["Rock", "Paper", "Scissors"]; let diff = document.getElementById('rps-diff').value; let cChoice = options[Math.floor(Math.random() * 3)]; 
-            if (diff === 'hard' || diff === 'ultra') { let highest = Object.keys(rpsHistory).reduce((a, b) => rpsHistory[a] > rpsHistory[b] ? a : b); if (rpsHistory[highest] > 0) { if(highest === "Rock") cChoice = "Paper"; if(highest === "Paper") cChoice = "Scissors"; if(highest === "Scissors") cChoice = "Rock"; } } 
-            if (diff === 'ultra' && Math.random() < 0.4) { if(pChoice === "Rock") cChoice = "Paper"; if(pChoice === "Paper") cChoice = "Scissors"; if(pChoice === "Scissors") cChoice = "Rock"; } 
-            rpsHistory[pChoice]++; let msg = "", color = ""; 
-            if (pChoice === cChoice) { msg = `Tie! Both chose ${pChoice}.`; color = "#f39c12"; scores.rps.t++; } 
-            else if ((pChoice==="Rock"&&cChoice==="Scissors") || (pChoice==="Paper"&&cChoice==="Rock") || (pChoice==="Scissors"&&cChoice==="Paper")) { msg = `You Win! ${pChoice} beats ${cChoice}.`; color = "#00e676"; soundWin(); scores.rps.w++; } 
-            else { msg = `You Lose! ${cChoice} beats ${pChoice}.`; color = "#ff5252"; soundLose(); scores.rps.l++; } 
-            document.getElementById('rps-result').innerHTML = `<h3 style="color: ${color}">${msg}</h3>`; 
-            document.getElementById('rps-w').innerText = scores.rps.w; document.getElementById('rps-l').innerText = scores.rps.l; document.getElementById('rps-t').innerText = scores.rps.t; 
-        }
+        function playRPS(pChoice) { soundClick(); const options = ["Rock", "Paper", "Scissors"]; let diff = document.getElementById('rps-diff').value; let cChoice = options[Math.floor(Math.random() * 3)]; if (diff === 'hard' || diff === 'ultra') { let highest = Object.keys(rpsHistory).reduce((a, b) => rpsHistory[a] > rpsHistory[b] ? a : b); if (rpsHistory[highest] > 0) { if(highest === "Rock") cChoice = "Paper"; if(highest === "Paper") cChoice = "Scissors"; if(highest === "Scissors") cChoice = "Rock"; } } if (diff === 'ultra' && Math.random() < 0.4) { if(pChoice === "Rock") cChoice = "Paper"; if(pChoice === "Paper") cChoice = "Scissors"; if(pChoice === "Scissors") cChoice = "Rock"; } rpsHistory[pChoice]++; let msg = "", color = ""; if (pChoice === cChoice) { msg = `Tie! Both chose ${pChoice}.`; color = "#f39c12"; scores.rps.t++; } else if ((pChoice==="Rock"&&cChoice==="Scissors") || (pChoice==="Paper"&&cChoice==="Rock") || (pChoice==="Scissors"&&cChoice==="Paper")) { msg = `You Win! ${pChoice} beats ${cChoice}.`; color = "#00e676"; soundWin(); scores.rps.w++; } else { msg = `You Lose! ${cChoice} beats ${pChoice}.`; color = "#ff5252"; soundLose(); scores.rps.l++; } document.getElementById('rps-result').innerHTML = `<h3 style="color: ${color}">${msg}</h3>`; document.getElementById('rps-w').innerText = scores.rps.w; document.getElementById('rps-l').innerText = scores.rps.l; document.getElementById('rps-t').innerText = scores.rps.t; }
 
         // --- 3. NUMBER GUESSER ---
         let guessTarget = 0, guessAttempts = 0, guessMax = 100, ultraLimit = 0; 
-        function resetGuessGame() { 
-            let diff = document.getElementById('guess-diff').value; 
-            if(diff==='easy') guessMax=50; else if(diff==='medium') guessMax=100; else if(diff==='hard') guessMax=500; else guessMax=1000; 
-            guessTarget = Math.floor(Math.random() * guessMax) + 1; guessAttempts = 0; ultraLimit = diff==='ultra' ? 10 : 999; 
-            document.getElementById('guess-hint').innerText = `I am thinking of a number between 1 and ${guessMax}...` + (diff==='ultra' ? ` (Max 10 tries)` : ''); 
-            document.getElementById('guess-result').innerHTML = ""; document.getElementById('guess-reset-btn').classList.add('hidden'); 
-        } 
-        resetGuessGame(); 
-        function makeGuess() { 
-            const input = document.getElementById('guess-input'); const guess = parseInt(input.value); const res = document.getElementById('guess-result'); 
-            if (isNaN(guess) || guess < 1 || guess > guessMax) return res.innerHTML = "Invalid number!"; guessAttempts++; 
-            if (guess === guessTarget) { res.innerHTML = `<span style="color: #00e676;">🎉 Correct! It was ${guessTarget} in ${guessAttempts} tries.</span>`; scores.guess.w++; document.getElementById('guess-w').innerText = scores.guess.w; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundWin(); 
-            } else { if (guessAttempts >= ultraLimit) { res.innerHTML = `<span style="color: #ff5252;">💀 You failed! Number was ${guessTarget}.</span>`; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundLose(); } else { res.innerHTML = guess < guessTarget ? `Too low! (Tries: ${guessAttempts})` : `Too high! (Tries: ${guessAttempts})`; soundClick(); } } 
-            input.value = ""; input.focus(); 
-        }
+        function resetGuessGame() { let diff = document.getElementById('guess-diff').value; if(diff==='easy') guessMax=50; else if(diff==='medium') guessMax=100; else if(diff==='hard') guessMax=500; else guessMax=1000; guessTarget = Math.floor(Math.random() * guessMax) + 1; guessAttempts = 0; ultraLimit = diff==='ultra' ? 10 : 999; document.getElementById('guess-hint').innerText = `I am thinking of a number between 1 and ${guessMax}...` + (diff==='ultra' ? ` (Max 10 tries)` : ''); document.getElementById('guess-result').innerHTML = ""; document.getElementById('guess-reset-btn').classList.add('hidden'); } resetGuessGame(); 
+        function makeGuess() { const input = document.getElementById('guess-input'); const guess = parseInt(input.value); const res = document.getElementById('guess-result'); if (isNaN(guess) || guess < 1 || guess > guessMax) return res.innerHTML = "Invalid number!"; guessAttempts++; if (guess === guessTarget) { res.innerHTML = `<span style="color: #00e676;">🎉 Correct! It was ${guessTarget} in ${guessAttempts} tries.</span>`; scores.guess.w++; document.getElementById('guess-w').innerText = scores.guess.w; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundWin(); } else { if (guessAttempts >= ultraLimit) { res.innerHTML = `<span style="color: #ff5252;">💀 You failed! Number was ${guessTarget}.</span>`; document.getElementById('guess-reset-btn').classList.remove('hidden'); soundLose(); } else { res.innerHTML = guess < guessTarget ? `Too low! (Tries: ${guessAttempts})` : `Too high! (Tries: ${guessAttempts})`; soundClick(); } } input.value = ""; input.focus(); }
 
         // --- 4. SNAKE GAME ---
         const sCanvas = document.getElementById('snake-canvas'), sCtx = sCanvas.getContext('2d');
         let snake, sFood, sDx, sDy, sScore;
         function drawSnakeFrame() { sCtx.fillStyle = '#1e1e2f'; sCtx.fillRect(0, 0, 400, 400); sCtx.fillStyle = '#ff3366'; sCtx.fillRect(sFood.x, sFood.y, 20, 20); sCtx.fillStyle = '#00e676'; snake.forEach(part => sCtx.fillRect(part.x, part.y, 18, 18)); }
-        function handleSnakeKey(key, event) { 
-            if(event) { event.preventDefault(); event.stopPropagation(); }
-            const k = key.toLowerCase(); 
-            if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } 
-            if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } 
-            if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } 
-            if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } 
-        }
+        function handleSnakeKey(key, event) { if(event) { event.preventDefault(); event.stopPropagation(); } const k = key.toLowerCase(); if ((k === 'arrowup' || k === 'w') && sDy === 0) { sDx = 0; sDy = -20; } if ((k === 'arrowdown' || k === 's') && sDy === 0) { sDx = 0; sDy = 20; } if ((k === 'arrowleft' || k === 'a') && sDx === 0) { sDx = -20; sDy = 0; } if ((k === 'arrowright' || k === 'd') && sDx === 0) { sDx = 20; sDy = 0; } }
         function startSnake() { clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'none'; snake = [{x: 200, y: 200}]; sDx = 20; sDy = 0; sScore = 0; let diff = document.getElementById('snake-diff').value; let speed = diff==='easy' ? 150 : diff==='medium' ? 100 : diff==='hard' ? 60 : 40; sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; document.getElementById('snake-score').innerText = sScore; runCountdown(drawSnakeFrame, sCtx, 400, 400, () => { activeIntervals.push(setInterval(updateSnake, speed)); }); }
-        function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); let btn = document.getElementById('snake-btn'); if(btn) btn.style.display = 'block'; return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
+        function updateSnake() { const head = {x: snake[0].x + sDx, y: snake[0].y + sDy}; if (head.x < 0 || head.x >= 400 || head.y < 0 || head.y >= 400 || snake.some(s => s.x === head.x && s.y === head.y)) { soundLose(); clearAllGameLoops(); return alert('Game Over! Score: ' + sScore); } snake.unshift(head); if (head.x === sFood.x && head.y === sFood.y) { sScore += 10; document.getElementById('snake-score').innerText = sScore; if(sScore > scores.snake.best) { scores.snake.best = sScore; document.getElementById('snake-best').innerText = scores.snake.best; } soundClick(); sFood = { x: Math.floor(Math.random()*20)*20, y: Math.floor(Math.random()*20)*20 }; } else { snake.pop(); } drawSnakeFrame(); }
         window.addEventListener('keydown', e => { if(!document.getElementById('snake-view').classList.contains('hidden')) handleSnakeKey(e.key); });
         let sStartX = 0, sStartY = 0; sCanvas.addEventListener('touchstart', e => { sStartX = e.changedTouches[0].screenX; sStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false}); sCanvas.addEventListener('touchend', e => { let dx = e.changedTouches[0].screenX - sStartX, dy = e.changedTouches[0].screenY - sStartY; if(Math.abs(dx) > Math.abs(dy)) { if(dx > 30) handleSnakeKey('d'); else if(dx < -30) handleSnakeKey('a'); } else { if(dy > 30) handleSnakeKey('s'); else if(dy < -30) handleSnakeKey('w'); } e.preventDefault(); }, {passive: false});
 
@@ -519,8 +447,7 @@
         window.addEventListener('keydown', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=true; if(k==='arrowdown' || k==='s') pDown=true; }); window.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if(k==='arrowup' || k==='w') pUp=false; if(k==='arrowdown' || k==='s') pDown=false; });
         pCanvas.addEventListener('touchmove', e => { const rect = pCanvas.getBoundingClientRect(); let touchY = (e.touches[0].clientY - rect.top) * (pCanvas.height / rect.height); pY = Math.max(0, Math.min(320, touchY - 40)); e.preventDefault(); }, {passive: false});
 
-
-        // --- 7. TANK RPG SURVIVAL & SAFE SPAWN ENGINE ---
+        // --- 7. TANK RPG SURVIVAL & PERFECT MOBILE SHOOTING ---
         const tCanvas = document.getElementById('tank-canvas'), tCtx = tCanvas.getContext('2d');
         const WORLD_W = 2000, WORLD_H = 2000;
         
@@ -529,47 +456,34 @@
         let diffConfig = {}, activePowerup = { type: null, endTime: 0 }, lastAutoShot = 0, lastManualShot = 0;
 
         const difficulties = { easy: {speedMax: 1.2, spawnRate: 3}, medium: {speedMax: 2.0, spawnRate: 6}, hard: {speedMax: 3.5, spawnRate: 10}, ultra: {speedMax: 5.5, spawnRate: 15} };
+        const bossRoster = [ { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' }, { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' } ];
 
-        const bossRoster = [
-            { e: '👹', n: 'The Oni King' }, { e: '😎', n: 'Agent Matrix' }, { e: '👽', n: 'Lord Zoltar' }, { e: '🤖', n: 'Mecha-Death' },
-            { e: '🎃', n: 'Pumpkin King' }, { e: '👻', n: 'Phantom Terror' }, { e: '🤠', n: 'Mad Sheriff' }, { e: '🥶', n: 'Frostbite' }
-        ];
-
-        window.addEventListener('blur', () => { keys = {}; });
-
-        // D-Pad Movement logic
         function setTankMove(k, val, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
+            inputMode = 'touch';
             keys[k.toLowerCase()] = val;
         }
 
-        // Quick Shoot in direction from Mobile
+        // Exact directional shooting
         function shootInDirection(angle, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
+            inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if (player) {
-                player.facingAngle = angle; // SNAP to angle
+                player.facingAngle = angle;
                 if (Date.now() - lastManualShot > player.fireCooldown) {
-                    let targetX = player.x + Math.cos(angle) * 300;
-                    let targetY = player.y + Math.sin(angle) * 300;
-                    firePlayerBullet(targetX, targetY);
-                    lastManualShot = Date.now();
+                    firePlayerBullet(); lastManualShot = Date.now();
                 }
             }
         }
 
-        // Shoot directly forward (Strictly current facing angle, NO auto aim)
+        // NO AUTO-AIM: Shoots precisely in current facing direction
         function shootMobileCurrentFacing(event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
+            inputMode = 'touch';
             if (document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
-            if (!player) return;
-
-            let angle = player.facingAngle; // Fixed: strictly forward
-            if (Date.now() - lastManualShot > player.fireCooldown) {
-                let targetX = player.x + Math.cos(angle) * 300;
-                let targetY = player.y + Math.sin(angle) * 300;
-                firePlayerBullet(targetX, targetY);
-                lastManualShot = Date.now();
+            if (player && Date.now() - lastManualShot > player.fireCooldown) {
+                firePlayerBullet(); lastManualShot = Date.now();
             }
         }
 
@@ -591,11 +505,10 @@
         }
 
         function hasLineOfSight(x1, y1, x2, y2) {
-            // Optimized bounding box LOS
             let minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
             let minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
             for(let o of obstacles) {
-                if (maxX < o.x || minX > o.x + o.w || maxY < o.y || minY > o.y + o.h) continue; // Reject fast
+                if (maxX < o.x || minX > o.x + o.w || maxY < o.y || minY > o.y + o.h) continue; 
                 let dist = Math.hypot(x2-x1, y2-y1); let steps = Math.ceil(dist / 20);
                 for(let i=0; i<=steps; i++) {
                     let tx = x1 + (x2 - x1) * (i/steps); let ty = y1 + (y2 - y1) * (i/steps);
@@ -608,12 +521,9 @@
         function startTankGame(mode) {
             clearAllGameLoops(); document.getElementById('tank-menu').classList.add('hidden'); document.getElementById('tank-game-ui').classList.remove('hidden'); keys = {};
             diffConfig = difficulties[mode];
-            player = { 
-                x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: 0 
-            };
+            player = { x: WORLD_W/2, y: WORLD_H/2, size: 25, baseSpeed: 3, hp: 3, maxHp: 3, exp: 0, maxExp: 30, level: 1, multishot: 1, fireCooldown: 250, invuln: 0, facingAngle: -Math.PI/2 };
             boss = { active: false, wave: 1, x: 0, y: 0, hp: 10, maxHp: 10, speed: 2.5, state: 'tired', timer: 0, laserAngle: 0, powerTimer: 20000, emoji: '👹', name: 'Boss' };
-            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = [];
-            tankScore = 0; waveKillCount = 0; activePowerup = { type: null, endTime: 0 };
+            bullets = []; enemies = []; enemyBullets = []; blueBullets = []; drops = []; obstacles = []; bombs = []; tankScore = 0; waveKillCount = 0; activePowerup = { type: null, endTime: 0 };
             document.getElementById('tank-score').innerText = tankScore;
             
             for(let i=0; i<50; i++) {
@@ -622,7 +532,7 @@
             }
             spawnEnemies(diffConfig.spawnRate);
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
-            runCountdown(drawTankFrame, tCtx, tCanvas.width, tCanvas.height, () => { loopTank(); });
+            runCountdown(drawTankFrame, tCtx, tCanvas.width, tCanvas.height, () => { globalRAF = requestAnimationFrame(loopTank); });
         }
 
         function spawnEnemies(count) { if(boss.active) return; for(let i=0; i<count; i++) { let pos = getSafeSpawn(player.x, player.y, 500, 700, 25); enemies.push({ x: pos.x, y: pos.y, size: 25, speed: (Math.random() * diffConfig.speedMax * 0.8) + 0.5 }); } }
@@ -643,9 +553,9 @@
             }
         }
 
-        function firePlayerBullet(targetX, targetY) {
-            let baseAngle = Math.atan2(targetY - player.y, targetX - player.x); 
-            soundClick();
+        // Fire Bullet Engine uses EXACT facing angle only
+        function firePlayerBullet() {
+            let baseAngle = player.facingAngle; soundClick();
             if (player.multishot === 1) { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle)*10, dy: Math.sin(baseAngle)*10 });
             } else { bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle-0.1)*10, dy: Math.sin(baseAngle-0.1)*10 }); bullets.push({ x: player.x, y: player.y, dx: Math.cos(baseAngle+0.1)*10, dy: Math.sin(baseAngle+0.1)*10 }); }
         }
@@ -680,56 +590,31 @@
 
             for(let e of enemies) { 
                 if(e.isMinion) {
-                    tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
-                    tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size);
-                    tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
+                    tCtx.fillStyle = '#cc0000'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.strokeStyle = '#ff0000'; tCtx.lineWidth = 2; tCtx.strokeRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); tCtx.fillStyle = '#fff'; tCtx.font = "12px Arial"; tCtx.textAlign = "center"; tCtx.fillText(e.hp, e.x, e.y - 15);
                 } else { tCtx.fillStyle = '#ff5252'; tCtx.fillRect(e.x - e.size/2, e.y - e.size/2, e.size, e.size); }
             }
 
             if (boss.active) {
                 tCtx.font = "60px Arial"; tCtx.textAlign = "center"; tCtx.textBaseline = "middle"; tCtx.fillText(boss.emoji, boss.x, boss.y);
-                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b";
-                tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
-
+                tCtx.font = "bold 16px Poppins"; tCtx.fillStyle = "#ffeb3b"; tCtx.shadowBlur = 5; tCtx.shadowColor = "#ffeb3b"; tCtx.fillText(boss.name, boss.x, boss.y + 45); tCtx.shadowBlur = 0;
                 if(boss.state === 'tired') { tCtx.font = "20px Arial"; tCtx.fillStyle = "#ffff00"; tCtx.fillText("❓❓❓", boss.x, boss.y - 45); }
                 tCtx.fillStyle = "red"; tCtx.fillRect(boss.x - 40, boss.y - 70, 80 * (boss.hp/boss.maxHp), 8); tCtx.strokeStyle = "white"; tCtx.strokeRect(boss.x - 40, boss.y - 70, 80, 8);
-                
                 if (boss.state === 'laser') {
-                    tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle);
-                    tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath();
-                    tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)';
-                    tCtx.fill(); tCtx.restore();
+                    tCtx.save(); tCtx.translate(boss.x, boss.y); tCtx.rotate(boss.laserAngle); tCtx.beginPath(); tCtx.moveTo(0,0); tCtx.lineTo(1500, Math.tan(Math.PI/6)*1500); tCtx.lineTo(1500, -Math.tan(Math.PI/6)*1500); tCtx.closePath(); tCtx.fillStyle = boss.timer > 500 ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.8)'; tCtx.fill(); tCtx.restore();
                 }
             }
 
-            for(let b of enemyBullets) { 
-                if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } 
-                else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); }
-            }
-            for(let bb of blueBullets) {
-                tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff';
-                tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0;
-            }
-
+            for(let b of enemyBullets) { if(b.type === 'ninja') { tCtx.fillStyle = '#fff'; tCtx.font = "20px Arial"; tCtx.fillText("★", b.x, b.y); } else { tCtx.fillStyle = '#ff3366'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 6, 0, Math.PI*2); tCtx.fill(); } }
+            for(let bb of blueBullets) { tCtx.shadowBlur = 15; tCtx.shadowColor = '#00d2ff'; tCtx.fillStyle = '#00d2ff'; tCtx.beginPath(); tCtx.arc(bb.x, bb.y, 8, 0, Math.PI*2); tCtx.fill(); tCtx.shadowBlur = 0; }
             for(let b of bullets) { tCtx.fillStyle = '#f39c12'; tCtx.beginPath(); tCtx.arc(b.x, b.y, 4, 0, Math.PI*2); tCtx.fill(); }
 
-            // Fixed Visual Tank Drawing Rotation
-            if(player.invuln <= 0 || Math.floor(Date.now()/100) % 2 === 0) { 
-                tCtx.save(); tCtx.translate(player.x, player.y); 
-                tCtx.rotate(player.facingAngle); // Exactly follow our aiming direction!
-                tCtx.fillStyle = activePowerup.type === 'speed' ? '#00e676' : '#00d2ff'; 
-                tCtx.fillRect(-player.size/2, -player.size/2, player.size, player.size); 
-                tCtx.fillStyle = '#fff'; tCtx.fillRect(0, -3, 22, 6); 
-                tCtx.restore(); 
-                if (activePowerup.type === 'shield') { tCtx.beginPath(); tCtx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2); tCtx.strokeStyle = "rgba(0, 210, 255, 0.8)"; tCtx.lineWidth = 4; tCtx.stroke(); } 
+            if(player.invuln <= 0 || Math.floor(Date.now()/100) % 2 === 0) {
+                tCtx.save(); tCtx.translate(player.x, player.y); tCtx.rotate(player.facingAngle); tCtx.fillStyle = activePowerup.type === 'speed' ? '#00e676' : '#00d2ff'; tCtx.fillRect(-player.size/2, -player.size/2, player.size, player.size); tCtx.fillStyle = '#fff'; tCtx.fillRect(0, -3, 22, 6); tCtx.restore();
+                if (activePowerup.type === 'shield') { tCtx.beginPath(); tCtx.arc(player.x, player.y, player.size + 5, 0, Math.PI * 2); tCtx.strokeStyle = "rgba(0, 210, 255, 0.8)"; tCtx.lineWidth = 4; tCtx.stroke(); }
             }
 
             tCtx.restore(); 
-
-            tCtx.resetTransform();
-            tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70);
-            tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left";
-            tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
+            tCtx.resetTransform(); tCtx.fillStyle = 'rgba(0, 0, 0, 0.6)'; tCtx.fillRect(10, 10, 200, 70); tCtx.fillStyle = 'white'; tCtx.font = "16px Poppins"; tCtx.textAlign = "left"; tCtx.fillText(`Level: ${player.level}   EXP: ${player.exp}/${player.maxExp}`, 20, 35);
             for(let i=0; i<player.maxHp; i++) { tCtx.fillStyle = i < player.hp ? '#ff3366' : '#555'; tCtx.font = "20px Arial"; tCtx.fillText("❤", 20 + i * 22, 65); }
         }
 
@@ -739,24 +624,14 @@
             if (now > activePowerup.endTime) { activePowerup.type = null; document.getElementById('tank-power').innerText = "None"; }
             let pSpeed = activePowerup.type === 'speed' ? player.baseSpeed * 2 : player.baseSpeed;
 
-            let isMoving = false;
-            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; player.facingAngle = -Math.PI/2; isMoving = true;}
-            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; player.facingAngle = Math.PI/2; isMoving = true;}
-            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; player.facingAngle = Math.PI; isMoving = true;}
-            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; player.facingAngle = 0; isMoving = true;}
-
-            // Allow mouse to override facing angle ONLY if moving via keyboard and mouse is active
-            if (inputMode === 'mouse' && isMoving) {
-                player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
-            }
+            if(keys['w'] && canMoveEntity(player.x, player.y - pSpeed, player.size)) { player.y -= pSpeed; if(inputMode === 'touch') player.facingAngle = -Math.PI/2; }
+            if(keys['s'] && canMoveEntity(player.x, player.y + pSpeed, player.size)) { player.y += pSpeed; if(inputMode === 'touch') player.facingAngle = Math.PI/2; }
+            if(keys['a'] && canMoveEntity(player.x - pSpeed, player.y, player.size)) { player.x -= pSpeed; if(inputMode === 'touch') player.facingAngle = Math.PI; }
+            if(keys['d'] && canMoveEntity(player.x + pSpeed, player.y, player.size)) { player.x += pSpeed; if(inputMode === 'touch') player.facingAngle = 0; }
 
             camX = Math.max(0, Math.min(WORLD_W - tCanvas.width, player.x - tCanvas.width/2)); camY = Math.max(0, Math.min(WORLD_H - tCanvas.height, player.y - tCanvas.height/2));
 
-            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { 
-                let targetX = player.x + Math.cos(player.facingAngle) * 300;
-                let targetY = player.y + Math.sin(player.facingAngle) * 300;
-                firePlayerBullet(targetX, targetY); lastAutoShot = now; 
-            }
+            if (activePowerup.type === 'rapid' && now - lastAutoShot > player.fireCooldown/2) { firePlayerBullet(); lastAutoShot = now; }
 
             for(let i = drops.length - 1; i >= 0; i--) {
                 let d = drops[i]; d.angle += 0.05;
@@ -780,8 +655,7 @@
                 boss.active = true; boss.speed = player.baseSpeed * 0.85; boss.maxHp = 50 + (boss.wave - 1) * 25; boss.hp = boss.maxHp;
                 let bPos = getSafeSpawn(player.x, player.y, 400, 500, 60); boss.x = bPos.x; boss.y = bPos.y;
                 boss.state = 'tired'; boss.timer = 2500; boss.powerTimer = 20000;
-                let bType = bossRoster[Math.floor(Math.random() * bossRoster.length)]; boss.emoji = bType.e; boss.name = bType.n;
-                soundWin(); enemies = []; 
+                let bType = bossRoster[Math.floor(Math.random() * bossRoster.length)]; boss.emoji = bType.e; boss.name = bType.n; soundWin(); enemies = []; 
             }
 
             if(boss.active) {
@@ -843,7 +717,6 @@
             globalRAF = requestAnimationFrame(loopTank);
         }
 
-        let inputMode = 'mouse';
         window.addEventListener('keydown', e => { 
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             inputMode = 'keyboard'; keys[e.key.toLowerCase()] = true; 
@@ -853,30 +726,21 @@
         tCanvas.addEventListener('mousemove', e => {
             inputMode = 'mouse';
             const rect = tCanvas.getBoundingClientRect(); mouseX = (e.clientX - rect.left) * (tCanvas.width / rect.width); mouseY = (e.clientY - rect.top) * (tCanvas.height / rect.height);
-            if(player && !document.getElementById('tank-game-ui').classList.contains('hidden')) {
-                player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x);
-            }
+            if(player && !document.getElementById('tank-game-ui').classList.contains('hidden')) { player.facingAngle = Math.atan2(mouseY + camY - player.y, mouseX + camX - player.x); }
         });
 
-        function handleCanvasTapShoot(screenX, screenY) {
-            inputMode = 'touch';
+        function handleCanvasTapShoot(screenX, screenY, isTouch) {
+            if(isTouch) inputMode = 'touch';
             if(document.getElementById('tank-game-ui').classList.contains('hidden') || !document.getElementById('tutorial-modal').classList.contains('hidden')) return;
             if(!player) return;
 
-            const rect = tCanvas.getBoundingClientRect();
-            let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width);
-            let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
-            
-            let targetX = canvasX + camX; let targetY = canvasY + camY;
-            player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
-            
-            if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) {
-                firePlayerBullet(targetX, targetY); lastManualShot = Date.now();
-            }
+            const rect = tCanvas.getBoundingClientRect(); let canvasX = (screenX - rect.left) * (tCanvas.width / rect.width); let canvasY = (screenY - rect.top) * (tCanvas.height / rect.height);
+            let targetX = canvasX + camX; let targetY = canvasY + camY; player.facingAngle = Math.atan2(targetY - player.y, targetX - player.x);
+            if(activePowerup.type !== 'rapid' && Date.now() - lastManualShot > player.fireCooldown) { firePlayerBullet(); lastManualShot = Date.now(); }
         }
 
-        tCanvas.addEventListener('mousedown', e => { handleCanvasTapShoot(e.clientX, e.clientY); });
-        tCanvas.addEventListener('touchstart', e => { let touch = e.touches[0]; handleCanvasTapShoot(touch.clientX, touch.clientY); e.preventDefault(); }, {passive: false});
+        tCanvas.addEventListener('mousedown', e => { handleCanvasTapShoot(e.clientX, e.clientY, false); });
+        tCanvas.addEventListener('touchstart', e => { let touch = e.touches[0]; handleCanvasTapShoot(touch.clientX, touch.clientY, true); e.preventDefault(); }, {passive: false});
 
     </script>
 </body>
